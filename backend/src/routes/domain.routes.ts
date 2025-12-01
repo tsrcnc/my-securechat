@@ -2,13 +2,112 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { verifyDomain, generateVerificationRecord } from '../lib/dns-verification';
+import { sendDomainVerificationEmail } from '../lib/email';
 
 const router = Router();
 
 // Validation schemas
+const registerDomainSchema = z.object({
+    domainName: z.string().min(3).regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/, 'Invalid domain format'),
+    ownerEmail: z.string().email(),
+    companyName: z.string().optional(),
+    contactPhone: z.string().optional()
+});
+
 const verifyDomainSchema = z.object({
     domainName: z.string().min(3)
 });
+
+/**
+ * POST /api/domains/register
+ * Register a new domain (Admin function)
+ */
+router.post('/register', async (req: Request, res: Response) => {
+    try {
+        const data = registerDomainSchema.parse(req.body);
+
+        // Check if domain already exists
+        const existingDomain = await prisma.domain.findUnique({
+            where: { domainName: data.domainName }
+        });
+
+        if (existingDomain) {
+            return res.status(400).json({
+                error: 'Domain already registered',
+                message: `The domain ${data.domainName} is already registered in our system.`
+            });
+        }
+
+        // Generate verification token
+        const verificationToken = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+
+        // Create domain
+        const domain = await prisma.domain.create({
+            data: {
+                domainName: data.domainName,
+                ownerEmail: data.ownerEmail,
+                companyName: data.companyName,
+                contactPhone: data.contactPhone,
+                verificationToken,
+                verificationStatus: 'PENDING',
+                verificationMethod: 'DNS',
+                subscriptionStatus: 'TRIAL', // Free trial for now
+                maxUsers: 1000
+            }
+        });
+
+        // Send verification email
+        try {
+            await sendDomainVerificationEmail(
+                data.ownerEmail,
+                data.domainName,
+                verificationToken
+            );
+        } catch (emailError) {
+            console.error('Failed to send domain verification email:', emailError);
+            // Don't block registration if email fails
+        }
+
+        // Log domain registration
+        await prisma.auditLog.create({
+            data: {
+                domainId: domain.id,
+                action: 'DOMAIN_REGISTERED',
+                resourceType: 'Domain',
+                resourceId: domain.id,
+                metadata: {
+                    domainName: domain.domainName,
+                    ownerEmail: data.ownerEmail
+                }
+            }
+        });
+
+        res.status(201).json({
+            success: true,
+            message: 'Domain registered successfully! Please check your email for verification instructions.',
+            domain: {
+                id: domain.id,
+                domainName: domain.domainName,
+                ownerEmail: domain.ownerEmail,
+                companyName: domain.companyName,
+                verificationStatus: domain.verificationStatus,
+                verificationToken: domain.verificationToken, // Include for testing
+                createdAt: domain.createdAt
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({
+                error: 'Validation error',
+                details: error.errors
+            });
+        }
+        console.error('Domain registration error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 
 /**
  * GET /api/domains/:domainName

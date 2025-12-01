@@ -61,6 +61,22 @@ export default function RegisterPage() {
             const data = await response.json();
 
             if (!response.ok) {
+                // Handle domain-specific errors
+                if (response.status === 403) {
+                    if (data.error === 'Domain not registered') {
+                        const domain = formData.email.split('@')[1];
+                        setError(`Domain '${domain}' is not registered. `);
+                        // Show link to domain registration
+                        setTimeout(() => {
+                            if (confirm(`Domain '${domain}' is not registered with My SecureChat.\n\nWould you like to register your domain now?`)) {
+                                window.location.href = '/domain-register';
+                            }
+                        }, 500);
+                        throw new Error(data.message || 'Domain not registered');
+                    } else if (data.error === 'Domain not verified') {
+                        throw new Error(data.message || 'Domain not verified. Please contact your administrator.');
+                    }
+                }
                 throw new Error(data.error || 'Failed to send verification code');
             }
 

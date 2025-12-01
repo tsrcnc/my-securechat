@@ -46,6 +46,29 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'User already exists' });
         }
 
+        // Extract domain from email and validate
+        const domainName = data.email.split('@')[1];
+        const domain = await prisma.domain.findUnique({
+            where: { domainName }
+        });
+
+        if (!domain) {
+            return res.status(403).json({
+                error: 'Domain not registered',
+                message: `The domain '${domainName}' is not registered with My SecureChat. Please contact your company administrator to register your domain first.`,
+                domain: domainName
+            });
+        }
+
+        if (domain.verificationStatus !== 'VERIFIED') {
+            return res.status(403).json({
+                error: 'Domain not verified',
+                message: `The domain '${domainName}' is registered but not yet verified. Please ask your administrator to complete domain verification.`,
+                domain: domainName,
+                status: domain.verificationStatus
+            });
+        }
+
         // Generate OTP
         const otp = generateOTP();
         const otpHash = await hashOTP(otp);
@@ -125,33 +148,18 @@ router.post('/verify-otp', async (req, res) => {
         // Extract domain from email
         const domainName = data.email.split('@')[1];
 
-        // Find or create domain
-        let domain = await prisma.domain.findUnique({
+        // Find domain (must exist and be verified)
+        const domain = await prisma.domain.findUnique({
             where: { domainName }
         });
 
         if (!domain) {
-            domain = await prisma.domain.create({
-                data: {
-                    domainName,
-                    verificationToken: Math.random().toString(36).substring(7),
-                    ownerEmail: data.email,
-                    verificationStatus: 'PENDING'
-                }
+            return res.status(403).json({
+                error: 'Domain not registered',
+                message: 'Domain must be registered before creating user accounts.'
             });
-
-            // Send domain verification email to owner
-            try {
-                await sendDomainVerificationEmail(
-                    data.email,
-                    domainName,
-                    domain.verificationToken
-                );
-            } catch (emailError) {
-                console.error('Failed to send domain verification email:', emailError);
-                // Don't block registration if email fails
-            }
         }
+
 
         // Hash password
         const passwordHash = await bcrypt.hash(data.password, 12);
