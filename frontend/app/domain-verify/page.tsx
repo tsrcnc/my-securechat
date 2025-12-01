@@ -3,311 +3,288 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+interface DomainInfo {
+    domainName: string;
+    verificationStatus: string;
+    ownerEmail: string;
+    currentUsers: number;
+    maxUsers: number;
+    subscriptionStatus: string;
+}
+
+interface VerificationInstructions {
+    record: {
+        type: string;
+        name: string;
+        value: string;
+        instructions: string;
+    };
+    steps: string[];
+}
+
 export default function DomainVerifyPage() {
     const searchParams = useSearchParams();
-    const domainParam = searchParams.get('domain');
+    const domainName = searchParams.get('domain');
 
-    const [domain, setDomain] = useState(domainParam || '');
-    const [domainInfo, setDomainInfo] = useState<any>(null);
-    const [instructions, setInstructions] = useState<any>(null);
-    const [loading, setLoading] = useState(false);
+    const [domainInfo, setDomainInfo] = useState<DomainInfo | null>(null);
+    const [instructions, setInstructions] = useState<VerificationInstructions | null>(null);
+    const [loading, setLoading] = useState(true);
     const [verifying, setVerifying] = useState(false);
-    const [error, setError] = useState('');
-    const [copied, setCopied] = useState<string | null>(null);
+    const [verificationResult, setVerificationResult] = useState<{ success: boolean; message: string } | null>(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
 
-    // Fetch domain info
     useEffect(() => {
-        if (domain) {
+        if (domainName) {
             fetchDomainInfo();
             fetchInstructions();
         }
-    }, [domain]);
+    }, [domainName]);
 
-    // Auto-refresh status every 30s
+    // Auto-refresh status every 30 seconds if pending
     useEffect(() => {
-        if (!autoRefresh || !domain || domainInfo?.verificationStatus === 'VERIFIED') return;
-
-        const interval = setInterval(() => {
-            fetchDomainInfo();
-        }, 30000); // 30 seconds
-
+        let interval: NodeJS.Timeout;
+        if (autoRefresh && domainInfo?.verificationStatus === 'PENDING') {
+            interval = setInterval(fetchDomainInfo, 30000);
+        }
         return () => clearInterval(interval);
-    }, [autoRefresh, domain, domainInfo]);
+    }, [autoRefresh, domainInfo?.verificationStatus]);
 
     const fetchDomainInfo = async () => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domain}`);
-            const data = await response.json();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domainName}`);
             if (response.ok) {
+                const data = await response.json();
                 setDomainInfo(data);
-            } else {
-                setError(data.error || 'Failed to fetch domain info');
+                if (data.verificationStatus === 'VERIFIED') {
+                    setAutoRefresh(false);
+                }
             }
         } catch (err) {
-            setError('Network error');
+            console.error('Failed to fetch domain info', err);
+        } finally {
+            setLoading(false);
         }
     };
 
     const fetchInstructions = async () => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domain}/instructions`);
-            const data = await response.json();
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domainName}/instructions`);
             if (response.ok) {
+                const data = await response.json();
                 setInstructions(data);
             }
         } catch (err) {
-            console.error('Failed to fetch instructions:', err);
+            console.error('Failed to fetch instructions', err);
         }
     };
 
     const handleVerify = async () => {
         setVerifying(true);
-        setError('');
-
+        setVerificationResult(null);
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domain}/verify`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/${domainName}/verify`, {
                 method: 'POST'
             });
             const data = await response.json();
 
-            if (response.ok && data.verified) {
-                alert('✅ Domain verified successfully!');
-                fetchDomainInfo(); // Refresh status
-            } else {
-                setError(data.details || data.message || 'Verification failed');
+            setVerificationResult({
+                success: data.success,
+                message: data.message + (data.details ? `: ${data.details}` : '')
+            });
+
+            if (data.success) {
+                fetchDomainInfo();
             }
-        } catch (err: any) {
-            setError('Verification request failed');
+        } catch (err) {
+            setVerificationResult({
+                success: false,
+                message: 'Network error occurred during verification'
+            });
         } finally {
             setVerifying(false);
         }
     };
 
-    const copyToClipboard = (text: string, label: string) => {
+    const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        setCopied(label);
-        setTimeout(() => setCopied(null), 2000);
     };
 
-    const getStatusBadge = (status: string) => {
-        const styles = {
-            PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            VERIFIED: 'bg-green-100 text-green-800 border-green-300',
-            REJECTED: 'bg-red-100 text-red-800 border-red-300'
-        };
-        return styles[status as keyof typeof styles] || styles.PENDING;
-    };
+    if (!domainName) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+                <div className="text-red-500 font-medium bg-red-50 px-4 py-2 rounded-lg border border-red-100">No domain specified</div>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-600"></div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4">
-            <div className="max-w-4xl mx-auto">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-                        Domain Verification
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Verify your domain to enable My SecureChat for your organization
-                    </p>
-                </div>
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans py-12 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-5xl mx-auto space-y-8">
 
-                {/* Domain Input (if not provided) */}
-                {!domainParam && (
-                    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Enter your domain name
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={domain}
-                                onChange={(e) => setDomain(e.target.value)}
-                                placeholder="example.com"
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <button
-                                onClick={fetchDomainInfo}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            >
-                                Check
-                            </button>
+                {/* Header Section */}
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 className="font-heading text-3xl font-bold text-slate-900 mb-2 tracking-tight">{domainName}</h1>
+                            <p className="text-slate-500 flex items-center gap-2">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                {domainInfo?.ownerEmail}
+                            </p>
+                        </div>
+                        <div className={`px-6 py-2 rounded-full text-sm font-bold tracking-wide uppercase border ${domainInfo?.verificationStatus === 'VERIFIED'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            }`}>
+                            {domainInfo?.verificationStatus}
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* Status Card */}
-                {domainInfo && (
-                    <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl mb-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    {domainInfo.domainName}
-                                </h2>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    Owner: {domainInfo.ownerEmail}
-                                </p>
+                {domainInfo?.verificationStatus === 'PENDING' && instructions && (
+                    <div className="grid md:grid-cols-2 gap-8">
+
+                        {/* Step 1: DNS Records */}
+                        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden flex flex-col">
+                            <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                <div className="w-8 h-8 bg-brand-100 text-brand-700 rounded-lg flex items-center justify-center font-bold">1</div>
+                                <h2 className="font-heading text-lg font-bold text-slate-900">Copy DNS Records</h2>
                             </div>
-                            <span className={`px-4 py-2 rounded-full border font-semibold ${getStatusBadge(domainInfo.verificationStatus)}`}>
-                                {domainInfo.verificationStatus}
-                            </span>
-                        </div>
 
-                        {domainInfo.verificationStatus === 'VERIFIED' && domainInfo.verifiedAt && (
-                            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mb-6">
-                                <p className="text-green-800 dark:text-green-200 font-medium">
-                                    ✅ Verified on {new Date(domainInfo.verifiedAt).toLocaleDateString()}
+                            <div className="p-6 space-y-6 flex-1">
+                                <p className="text-sm text-slate-500">
+                                    Add this <strong>TXT Record</strong> to your domain's DNS settings.
                                 </p>
-                            </div>
-                        )}
 
-                        {/* DNS Instructions */}
-                        {domainInfo.verificationStatus === 'PENDING' && instructions && (
-                            <>
-                                <div className="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl mb-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                                        📋 DNS TXT Record Details
-                                    </h3>
+                                {/* Host Name */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                        Host / Name
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <code className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-mono text-brand-700 break-all">
+                                            {instructions.record.name}
+                                        </code>
+                                        <button
+                                            onClick={() => copyToClipboard(instructions.record.name)}
+                                            className="bg-white border border-slate-200 text-slate-600 px-4 rounded-xl hover:bg-slate-50 hover:text-brand-700 hover:border-brand-200 font-medium transition-all shadow-sm"
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-2">Note: Some providers only require the part before the domain name.</p>
+                                </div>
 
-                                    <div className="space-y-4">
-                                        {/* Host/Name */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Host/Name:
-                                            </label>
-                                            <div className="flex gap-2">
-                                                <code className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm break-all">
-                                                    {instructions.record.name}
-                                                </code>
-                                                <button
-                                                    onClick={() => copyToClipboard(instructions.record.name, 'name')}
-                                                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                                                    suppressHydrationWarning
-                                                >
-                                                    {copied === 'name' ? '✓ Copied' : 'Copy'}
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Type */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Type:
-                                            </label>
-                                            <code className="block px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm">
-                                                {instructions.record.type}
-                                            </code>
-                                        </div>
-
-                                        {/* Value */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                Value:
-                                            </label>
-                                            <div className="flex gap-2">
-                                                <code className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-mono text-sm break-all">
-                                                    {instructions.record.value}
-                                                </code>
-                                                <button
-                                                    onClick={() => copyToClipboard(instructions.record.value, 'value')}
-                                                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                                                    suppressHydrationWarning
-                                                >
-                                                    {copied === 'value' ? '✓ Copied' : 'Copy'}
-                                                </button>
-                                            </div>
-                                        </div>
+                                {/* Value */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                        Value / Content
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <code className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-mono text-brand-700 break-all">
+                                            {instructions.record.value}
+                                        </code>
+                                        <button
+                                            onClick={() => copyToClipboard(instructions.record.value)}
+                                            className="bg-white border border-slate-200 text-slate-600 px-4 rounded-xl hover:bg-slate-50 hover:text-brand-700 hover:border-brand-200 font-medium transition-all shadow-sm"
+                                        >
+                                            Copy
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Steps */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                                        🔧 Verification Steps
-                                    </h3>
-                                    <ol className="space-y-2 text-gray-700 dark:text-gray-300">
-                                        {instructions.steps.map((step: string, index: number) => (
-                                            <li key={index} className="flex gap-3">
-                                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
-                                                    {index + 1}
-                                                </span>
-                                                <span>{step}</span>
-                                            </li>
-                                        ))}
-                                    </ol>
+                                {/* Type & TTL */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Type</label>
+                                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono font-bold text-slate-900 text-center">TXT</div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">TTL</label>
+                                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-mono text-slate-500 text-center">Auto / 3600</div>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
 
-                                {/* Verify Button */}
-                                <div className="flex gap-4">
+                        {/* Step 2: Verify */}
+                        <div className="space-y-8 flex flex-col">
+                            <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden flex-1">
+                                <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-brand-100 text-brand-700 rounded-lg flex items-center justify-center font-bold">2</div>
+                                    <h2 className="font-heading text-lg font-bold text-slate-900">Verify Ownership</h2>
+                                </div>
+                                <div className="p-6 flex flex-col h-full justify-center">
+                                    <p className="text-slate-500 mb-8 text-center">
+                                        After adding the record, wait a few minutes for DNS propagation (it can take up to 24 hours in rare cases).
+                                    </p>
+
                                     <button
                                         onClick={handleVerify}
                                         disabled={verifying}
-                                        className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                        suppressHydrationWarning
+                                        className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl shadow-brand-700/20 transition-all transform hover:-translate-y-1 ${verifying
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-brand-700 text-white hover:bg-brand-800'
+                                            }`}
                                     >
-                                        {verifying ? 'Checking DNS...' : '🔍 Verify Now'}
+                                        {verifying ? 'Verifying...' : 'Verify Domain Now ✨'}
                                     </button>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={autoRefresh}
-                                            onChange={(e) => setAutoRefresh(e.target.checked)}
-                                            className="w-4 h-4"
-                                            suppressHydrationWarning
-                                        />
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                                            Auto-refresh status
-                                        </span>
-                                    </label>
+
+                                    {verificationResult && (
+                                        <div className={`mt-6 p-4 rounded-xl text-sm border ${verificationResult.success
+                                                ? 'bg-green-50 text-green-700 border-green-200'
+                                                : 'bg-red-50 text-red-700 border-red-200'
+                                            }`}>
+                                            <p className="font-bold mb-1">
+                                                {verificationResult.success ? 'Success!' : 'Verification Failed'}
+                                            </p>
+                                            <p>{verificationResult.message}</p>
+                                        </div>
+                                    )}
                                 </div>
-
-                                {error && (
-                                    <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-200 rounded-lg text-sm">
-                                        <p className="font-semibold mb-1">Verification Failed</p>
-                                        <p>{error}</p>
-                                        <p className="mt-2 text-xs">
-                                            💡 Tip: DNS changes can take up to 24 hours to propagate. Please wait and try again later.
-                                        </p>
-                                    </div>
-                                )}
-                            </>
-                        )}
-
-                        {/* Domain Stats */}
-                        <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-blue-600">{domainInfo.currentUsers || 0}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Users</p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-purple-600">{domainInfo.maxUsers}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Max Users</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-green-600">{domainInfo.subscriptionStatus}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Status</p>
+
+                            {/* Help Section */}
+                            <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm">
+                                <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                                    <span>ℹ️</span> Need Help?
+                                </h3>
+                                <ul className="text-sm text-slate-500 space-y-2 list-disc list-inside">
+                                    <li>Ensure you selected <strong>TXT</strong> as record type</li>
+                                    <li>Check if your provider needs <strong>@</strong> as host</li>
+                                    <li>Wait 5-10 minutes for changes to apply</li>
+                                </ul>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Help Section */}
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                        ℹ️ Need Help?
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                        If you're having trouble verifying your domain, please check:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                        <li>DNS TXT record is added correctly</li>
-                        <li>DNS changes have propagated (check with DNS lookup tools)</li>
-                        <li>No typos in the record name or value</li>
-                    </ul>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
-                        Contact support: <a href="mailto:support@mysecurechat.org" className="text-blue-600 hover:underline">support@mysecurechat.org</a>
-                    </p>
-                </div>
+                {domainInfo?.verificationStatus === 'VERIFIED' && (
+                    <div className="bg-white border border-green-100 rounded-2xl p-12 text-center shadow-xl shadow-green-900/5">
+                        <div className="w-24 h-24 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl border border-green-100">
+                            ✓
+                        </div>
+                        <h2 className="font-heading text-3xl font-bold text-slate-900 mb-4">Domain Verified!</h2>
+                        <p className="text-slate-500 text-lg mb-8">
+                            You can now register user accounts with <strong>@{domainName}</strong> emails.
+                        </p>
+                        <a
+                            href="/register"
+                            className="inline-block bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-600/20"
+                        >
+                            Create User Account →
+                        </a>
+                    </div>
+                )}
             </div>
         </div>
     );

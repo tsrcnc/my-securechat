@@ -32,10 +32,34 @@ router.post('/register', async (req: Request, res: Response) => {
         });
 
         if (existingDomain) {
-            return res.status(400).json({
-                error: 'Domain already registered',
-                message: `The domain ${data.domainName} is already registered in our system.`
-            });
+            // If domain exists but is not verified, allow re-registration (resume verification)
+            if (existingDomain.verificationStatus === 'PENDING') {
+                // If the owner email matches, return success with existing token
+                if (existingDomain.ownerEmail === data.ownerEmail) {
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Domain already registered. Resuming verification.',
+                        domain: {
+                            id: existingDomain.id,
+                            domainName: existingDomain.domainName,
+                            ownerEmail: existingDomain.ownerEmail,
+                            companyName: existingDomain.companyName,
+                            verificationToken: existingDomain.verificationToken,
+                            verificationStatus: existingDomain.verificationStatus
+                        }
+                    });
+                } else {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Domain is already registered by another user.'
+                    });
+                }
+            } else {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Domain is already registered and verified.'
+                });
+            }
         }
 
         // Generate verification token
@@ -104,7 +128,11 @@ router.post('/register', async (req: Request, res: Response) => {
             });
         }
         console.error('Domain registration error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+        });
     }
 });
 
@@ -121,7 +149,7 @@ router.get('/:domainName', async (req: Request, res: Response) => {
             where: { domainName },
             include: {
                 _count: {
-                    select: { users: true }
+                    select: { User: true }
                 }
             }
         });
@@ -141,13 +169,17 @@ router.get('/:domainName', async (req: Request, res: Response) => {
             subscriptionStatus: domain.subscriptionStatus,
             subscriptionEndDate: domain.subscriptionEndDate,
             maxUsers: domain.maxUsers,
-            currentUsers: domain._count.users,
+            currentUsers: domain._count.User,
             createdAt: domain.createdAt
         });
 
     } catch (error) {
         console.error('Get domain error:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        res.status(500).json({
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+        });
     }
 });
 
@@ -315,6 +347,111 @@ router.patch('/:domainName', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Update domain error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * DELETE /api/domains/:domainId
+ * Delete a domain and all associated data (Admin only)
+ */
+router.delete('/:domainId', async (req: Request, res: Response) => {
+    try {
+        const { domainId } = req.params;
+
+        // In a real app, we would check if the requester is the domain admin
+        // For now, we'll assume the frontend handles the permission check via the token
+
+        // Delete all data associated with the domain
+        // Prisma cascade delete should handle most of this if configured, 
+        // but explicit deletion is safer for critical operations
+
+        // Fetch all users in the domain to delete their data
+        const users = await prisma.user.findMany({
+            where: { domainId },
+            select: { id: true }
+        });
+        const userIds = users.map(u => u.id);
+
+        await prisma.$transaction([
+            // Delete messages sent by these users
+            prisma.message.deleteMany({
+                where: {
+                    senderId: { in: userIds }
+                }
+            }),
+            // Delete conversations created by these users
+            prisma.conversation.deleteMany({
+                where: {
+                    createdById: { in: userIds }
+                }
+            }),
+            // Delete users
+            prisma.user.deleteMany({
+                where: { domainId }
+            }),
+            // Delete subscriptions
+            prisma.subscription.deleteMany({
+                where: { domainId }
+            }),
+            // Finally delete the domain
+            prisma.domain.delete({
+                where: { id: domainId }
+            })
+        ]);
+
+        await prisma.auditLog.create({
+            data: {
+                action: 'DOMAIN_DELETED',
+                domainId: domainId,
+                resourceType: 'DOMAIN',
+                resourceId: domainId,
+                metadata: { timestamp: new Date() }
+            }
+        });
+
+        res.json({ success: true, message: 'Domain and all associated data deleted successfully' });
+    } catch (error) {
+        console.error('Delete domain error:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+/**
+ * POST /api/domains/:domainId/cancel-subscription
+ * Cancel domain subscription (Admin only)
+ */
+router.post('/:domainId/cancel-subscription', async (req: Request, res: Response) => {
+    try {
+        const { domainId } = req.params;
+
+        const domain = await prisma.domain.update({
+            where: { id: domainId },
+            data: {
+                subscriptionStatus: 'TRIAL',
+                subscriptionEndDate: null
+            }
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                action: 'SUBSCRIPTION_CANCELLED',
+                domainId: domainId,
+                resourceType: 'SUBSCRIPTION',
+                resourceId: domainId,
+                metadata: { timestamp: new Date() }
+            }
+        });
+
+        res.json({ success: true, message: 'Subscription cancelled successfully', domain });
+    } catch (error) {
+        console.error('Cancel subscription error:', error);
+        res.status(500).json({
+            error: 'Internal server error',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 });
 

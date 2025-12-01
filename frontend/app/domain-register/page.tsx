@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function DomainRegisterPage() {
     const router = useRouter();
@@ -11,227 +12,213 @@ export default function DomainRegisterPage() {
         companyName: '',
         contactPhone: ''
     });
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
-    const [registeredDomain, setRegisteredDomain] = useState<any>(null);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-        setError('');
-    };
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
+        setLoading(true);
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/register`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
             });
 
-            const data = await response.json();
+            const data = await res.json();
 
-            if (response.ok) {
-                setSuccess(true);
-                setRegisteredDomain(data.domain);
-            } else {
-                setError(data.message || data.error || 'Registration failed');
+            if (!res.ok) {
+                if (res.status === 200 && data.success) {
+                    setSuccess(true);
+                    setTimeout(() => {
+                        router.push(`/domain-verify?domain=${formData.domainName}`);
+                    }, 2000);
+                    return;
+                }
+                throw new Error(data.message || 'Registration failed');
             }
-        } catch (err) {
-            setError('Network error. Please try again.');
+
+            setSuccess(true);
+            setTimeout(() => {
+                router.push(`/domain-verify?domain=${formData.domainName}`);
+            }, 2000);
+
+        } catch (err: any) {
+            setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    if (success && registeredDomain) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 flex items-center justify-center p-4">
-                <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full">
-                    <div className="text-center mb-6">
-                        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-4xl">✅</span>
-                        </div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                            Domain Registered Successfully!
-                        </h1>
-                        <p className="text-gray-600">
-                            Your domain has been registered. Please verify it to start using My SecureChat.
-                        </p>
-                    </div>
-
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                        <h2 className="font-semibold text-gray-900 mb-2">📧 Check Your Email</h2>
-                        <p className="text-sm text-gray-700 mb-1">
-                            A verification email has been sent to:
-                        </p>
-                        <p className="text-blue-600 font-mono font-semibold">
-                            {registeredDomain.ownerEmail}
-                        </p>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                        <h3 className="font-semibold text-gray-900 mb-3">Domain Details:</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Domain:</span>
-                                <span className="font-semibold">{registeredDomain.domainName}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Status:</span>
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
-                                    {registeredDomain.verificationStatus}
-                                </span>
-                            </div>
-                            {registeredDomain.companyName && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Company:</span>
-                                    <span className="font-semibold">{registeredDomain.companyName}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                        <button
-                            onClick={() => router.push(`/domain-verify?domain=${registeredDomain.domainName}`)}
-                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
-                            suppressHydrationWarning
-                        >
-                            Verify Domain Now →
-                        </button>
-                        <button
-                            onClick={() => router.push('/login')}
-                            className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
-                            suppressHydrationWarning
-                        >
-                            Go to Login
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Register Your Domain
-                    </h1>
-                    <p className="text-gray-600 text-sm">
-                        Register your company domain to enable My SecureChat for your organization
-                    </p>
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="flex justify-center mb-6">
+                    <div className="w-12 h-12 bg-brand-700 rounded-xl flex items-center justify-center font-bold text-2xl text-white shadow-lg shadow-brand-700/20">
+                        S
+                    </div>
                 </div>
+                <h2 className="text-center text-3xl font-heading font-bold tracking-tight text-slate-900">
+                    Register Your Domain
+                </h2>
+                <p className="mt-2 text-center text-sm text-slate-500">
+                    Enable secure messaging for your organization
+                </p>
+            </div>
 
-                {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
-                        {error}
+            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/50 sm:rounded-2xl sm:px-10 border border-slate-100">
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+
+                        {/* Domain Name */}
+                        <div>
+                            <label htmlFor="domainName" className="block text-sm font-semibold text-slate-700">
+                                Domain Name
+                            </label>
+                            <div className="mt-1 relative rounded-md shadow-sm">
+                                <input
+                                    id="domainName"
+                                    name="domainName"
+                                    type="text"
+                                    required
+                                    placeholder="e.g., acme.com"
+                                    className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all"
+                                    value={formData.domainName}
+                                    onChange={(e) => setFormData({ ...formData, domainName: e.target.value })}
+                                    suppressHydrationWarning
+                                />
+                            </div>
+                        </div>
+
+                        {/* Owner Email */}
+                        <div>
+                            <label htmlFor="ownerEmail" className="block text-sm font-semibold text-slate-700">
+                                Administrator Email
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="ownerEmail"
+                                    name="ownerEmail"
+                                    type="email"
+                                    required
+                                    placeholder="admin@acme.com"
+                                    className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all"
+                                    value={formData.ownerEmail}
+                                    onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                                    suppressHydrationWarning
+                                />
+                            </div>
+                        </div>
+
+                        {/* Company Name */}
+                        <div>
+                            <label htmlFor="companyName" className="block text-sm font-semibold text-slate-700">
+                                Company Name
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="companyName"
+                                    name="companyName"
+                                    type="text"
+                                    placeholder="Acme Corp"
+                                    className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all"
+                                    value={formData.companyName}
+                                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                                    suppressHydrationWarning
+                                />
+                            </div>
+                        </div>
+
+                        {/* Phone */}
+                        <div>
+                            <label htmlFor="contactPhone" className="block text-sm font-semibold text-slate-700">
+                                Contact Phone (Optional)
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="contactPhone"
+                                    name="contactPhone"
+                                    type="tel"
+                                    placeholder="+1 (555) 000-0000"
+                                    className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all"
+                                    value={formData.contactPhone}
+                                    onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                                    suppressHydrationWarning
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="rounded-xl bg-red-50 border border-red-100 p-4">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <h3 className="text-sm font-medium text-red-800">Registration Error</h3>
+                                        <div className="mt-1 text-sm text-red-600">{error}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {success && (
+                            <div className="rounded-xl bg-green-50 border border-green-100 p-4">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm font-medium text-green-800">
+                                            Success! Redirecting to verification...
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div>
+                            <button
+                                type="submit"
+                                disabled={loading || success}
+                                className={`w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-brand-700/20 text-sm font-bold text-white bg-brand-700 hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all transform hover:-translate-y-0.5 ${(loading || success) ? 'opacity-75 cursor-not-allowed' : ''
+                                    }`}
+                                suppressHydrationWarning
+                            >
+                                {loading ? 'Processing...' : 'Register Domain'}
+                            </button>
+                        </div>
+                    </form>
+
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-200" />
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-slate-500">
+                                Already registered?
+                            </span>
+                        </div>
                     </div>
-                )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="domainName" className="block text-sm font-medium text-gray-700 mb-1">
-                            Domain Name *
-                        </label>
-                        <input
-                            type="text"
-                            id="domainName"
-                            name="domainName"
-                            value={formData.domainName}
-                            onChange={handleChange}
-                            required
-                            placeholder="example.com"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            suppressHydrationWarning
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Enter your company domain (e.g., acme.com)</p>
-                    </div>
-
-                    <div>
-                        <label htmlFor="ownerEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                            Owner Email *
-                        </label>
-                        <input
-                            type="email"
-                            id="ownerEmail"
-                            name="ownerEmail"
-                            value={formData.ownerEmail}
-                            onChange={handleChange}
-                            required
-                            placeholder="admin@example.com"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            suppressHydrationWarning
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Admin email for domain verification</p>
-                    </div>
-
-                    <div>
-                        <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-                            Company Name
-                        </label>
-                        <input
-                            type="text"
-                            id="companyName"
-                            name="companyName"
-                            value={formData.companyName}
-                            onChange={handleChange}
-                            placeholder="Acme Corporation"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            suppressHydrationWarning
-                        />
-                    </div>
-
-                    <div>
-                        <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                            Contact Phone
-                        </label>
-                        <input
-                            type="tel"
-                            id="contactPhone"
-                            name="contactPhone"
-                            value={formData.contactPhone}
-                            onChange={handleChange}
-                            placeholder="+1 234 567 8900"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            suppressHydrationWarning
-                        />
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-                        suppressHydrationWarning
-                    >
-                        {loading ? 'Registering...' : 'Register Domain'}
-                    </button>
-                </form>
-
-                <div className="mt-6 text-center">
-                    <p className="text-sm text-gray-600">
-                        Already registered?{' '}
-                        <button
-                            onClick={() => router.push('/login')}
-                            className="text-blue-600 hover:underline font-semibold"
-                            suppressHydrationWarning
+                    <div className="mt-6 grid grid-cols-1 gap-3">
+                        <Link
+                            href="/login"
+                            className="w-full inline-flex justify-center py-3 px-4 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-brand-700 transition-colors"
                         >
-                            Sign In
-                        </button>
-                    </p>
+                            Sign in to your account
+                        </Link>
+                    </div>
                 </div>
             </div>
         </div>
+
     );
 }

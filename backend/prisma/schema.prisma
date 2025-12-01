@@ -8,7 +8,7 @@ datasource db {
 }
 
 model AuditLog {
-  id           String   @id
+  id           String   @id @default(uuid())
   userId       String?
   domainId     String?
   action       String
@@ -27,13 +27,13 @@ model AuditLog {
 }
 
 model Conversation {
-  id                      String                    @id
+  id                      String                    @id @default(uuid())
   type                    ConversationType
   name                    String?
   avatarUrl               String?
   createdById             String?
   createdAt               DateTime                  @default(now())
-  updatedAt               DateTime
+  updatedAt               DateTime                  @updatedAt
   lastMessageAt           DateTime?
   User                    User?                     @relation(fields: [createdById], references: [id])
   ConversationParticipant ConversationParticipant[]
@@ -44,7 +44,7 @@ model Conversation {
 }
 
 model ConversationParticipant {
-  id                   String          @id
+  id                   String          @id @default(uuid())
   conversationId       String
   userId               String
   role                 ParticipantRole @default(MEMBER)
@@ -60,7 +60,7 @@ model ConversationParticipant {
 }
 
 model Domain {
-  id                     String             @id
+  id                     String             @id @default(uuid())
   domainName             String             @unique
   verificationToken      String             @unique
   verificationStatus     VerificationStatus @default(PENDING)
@@ -76,7 +76,7 @@ model Domain {
   razorpaySubscriptionId String?
   maxUsers               Int                @default(1000)
   createdAt              DateTime           @default(now())
-  updatedAt              DateTime
+  updatedAt              DateTime           @updatedAt
   Subscription           Subscription[]
   User                   User[]
 
@@ -86,7 +86,7 @@ model Domain {
 }
 
 model EmailVerification {
-  id        String   @id
+  id        String   @id @default(uuid())
   email     String
   otpHash   String
   expiresAt DateTime
@@ -97,7 +97,7 @@ model EmailVerification {
 }
 
 model Message {
-  id             String        @id
+  id             String        @id @default(uuid())
   conversationId String
   senderId       String?
   messageType    MessageType   @default(TEXT)
@@ -108,7 +108,7 @@ model Message {
   isEdited       Boolean       @default(false)
   isDeleted      Boolean       @default(false)
   createdAt      DateTime      @default(now())
-  updatedAt      DateTime
+  updatedAt      DateTime      @updatedAt
   Conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   Message        Message?      @relation("MessageToMessage", fields: [replyToId], references: [id])
   other_Message  Message[]     @relation("MessageToMessage")
@@ -121,7 +121,7 @@ model Message {
 }
 
 model MessageRead {
-  id        String   @id
+  id        String   @id @default(uuid())
   messageId String
   userId    String
   readAt    DateTime @default(now())
@@ -134,7 +134,7 @@ model MessageRead {
 }
 
 model Subscription {
-  id                     String        @id
+  id                     String        @id @default(uuid())
   domainId               String
   razorpayOrderId        String?
   razorpayPaymentId      String?
@@ -147,7 +147,7 @@ model Subscription {
   endDate                DateTime?
   autoRenew              Boolean       @default(true)
   createdAt              DateTime      @default(now())
-  updatedAt              DateTime
+  updatedAt              DateTime      @updatedAt
   Domain                 Domain        @relation(fields: [domainId], references: [id], onDelete: Cascade)
 
   @@index([domainId])
@@ -156,7 +156,7 @@ model Subscription {
 }
 
 model User {
-  id                      String                    @id
+  id                      String                    @id @default(uuid())
   email                   String                    @unique
   domainId                String
   passwordHash            String
@@ -168,7 +168,7 @@ model User {
   isPlatformAdmin         Boolean                   @default(false)
   emailVerified           Boolean                   @default(false)
   createdAt               DateTime                  @default(now())
-  updatedAt               DateTime
+  updatedAt               DateTime                  @updatedAt
   AuditLog                AuditLog[]
   Conversation            Conversation[]
   ConversationParticipant ConversationParticipant[]

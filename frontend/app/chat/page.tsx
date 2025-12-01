@@ -10,25 +10,38 @@ export default function ChatPage() {
     useEffect(() => {
         // Check if user is logged in
         const token = localStorage.getItem('token');
-        const userData = localStorage.getItem('user');
 
-        if (!token || !userData) {
+        if (!token) {
             router.push('/login');
             return;
         }
 
-        try {
-            if (userData && userData !== "undefined") {
-                setUser(JSON.parse(userData));
-            } else {
-                console.error('Invalid user data in localStorage');
-                router.push('/login');
+        // Fetch latest user data
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        } catch (error) {
-            console.error('Error parsing user data:', error);
-            localStorage.removeItem('user'); // Clear invalid data
-            router.push('/login');
-        }
+        })
+            .then(res => {
+                if (res.ok) {
+                    return res.json();
+                }
+                throw new Error('Failed to fetch user');
+            })
+            .then(userData => {
+                setUser(userData);
+                localStorage.setItem('user', JSON.stringify(userData));
+            })
+            .catch(err => {
+                console.error('Error fetching user:', err);
+                // Fallback to local storage if API fails, or redirect
+                const localUser = localStorage.getItem('user');
+                if (localUser) {
+                    setUser(JSON.parse(localUser));
+                } else {
+                    router.push('/login');
+                }
+            });
     }, [router]);
 
     const handleLogout = () => {
@@ -59,12 +72,22 @@ export default function ChatPage() {
                                 Hello, {user.displayName}!
                             </p>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
-                        >
-                            Logout
-                        </button>
+                        <div className="flex gap-4">
+                            {user.isDomainAdmin && (
+                                <button
+                                    onClick={() => router.push('/admin/settings')}
+                                    className="bg-brand-600 text-white px-6 py-2 rounded-lg hover:bg-brand-700 transition font-medium shadow-lg shadow-brand-600/20"
+                                >
+                                    Manage Organization
+                                </button>
+                            )}
+                            <button
+                                onClick={handleLogout}
+                                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition"
+                            >
+                                Logout
+                            </button>
+                        </div>
                     </div>
 
                     <div className="bg-green-50 dark:bg-green-900 border-l-4 border-green-500 p-4 mb-6">

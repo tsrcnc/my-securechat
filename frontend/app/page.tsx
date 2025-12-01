@@ -1,129 +1,138 @@
-'use client';
+import Link from 'next/link';
 
-import { useRouter } from 'next/navigation';
-
-export default function LandingPage() {
-    const router = useRouter();
-
+export default function Home() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700">
-            <div className="container mx-auto px-4 py-16">
-                {/* Header */}
-                <nav className="flex justify-between items-center mb-20">
-                    <div className="text-white">
-                        <h1 className="text-2xl font-bold">My SecureChat</h1>
-                        <p className="text-blue-200 text-sm">Enterprise Messaging Platform</p>
-                    </div>
-                    <button
-                        onClick={() => router.push('/login')}
-                        className="bg-white text-blue-600 px-6 py-2 rounded-lg font-semibold hover:bg-blue-50 transition"
-                        suppressHydrationWarning
-                    >
-                        Sign In
-                    </button>
-                </nav>
+        <div className="min-h-screen bg-white text-slate-900 selection:bg-brand-100 selection:text-brand-900 font-sans">
 
-                {/* Hero Section */}
-                <div className="text-center text-white mb-16">
-                    <h2 className="text-5xl md:text-6xl font-bold mb-6">
-                        Secure Messaging for<br />Your Organization
-                    </h2>
-                    <p className="text-xl md:text-2xl text-blue-100 mb-12 max-w-3xl mx-auto">
-                        Domain-based chat platform with end-to-end encryption.<br />
-                        Perfect for businesses that value privacy and security.
+            {/* Navbar */}
+            <nav className="border-b border-slate-100 bg-white/80 backdrop-blur-md fixed w-full z-50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between h-20 items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-brand-700 rounded-xl flex items-center justify-center font-bold text-xl text-white shadow-lg shadow-brand-700/20">
+                                S
+                            </div>
+                            <span className="font-heading font-bold text-xl tracking-tight text-slate-900">My SecureChat</span>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <Link href="/login" className="text-slate-600 hover:text-brand-700 transition-colors font-medium text-sm">
+                                Sign In
+                            </Link>
+                            <Link
+                                href="/domain-register"
+                                className="bg-brand-700 text-white px-6 py-2.5 rounded-full font-medium hover:bg-brand-800 transition-all shadow-md shadow-brand-700/20 hover:shadow-lg hover:shadow-brand-700/30 transform hover:-translate-y-0.5"
+                            >
+                                Get Started
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            {/* Hero Section */}
+            <div className="relative pt-40 pb-24 sm:pt-48 sm:pb-32 overflow-hidden">
+                {/* Background Elements */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full z-0 pointer-events-none">
+                    <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-50/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+                    <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-50/50 rounded-full blur-3xl translate-y-1/4 -translate-x-1/4"></div>
+                </div>
+
+                <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100 text-brand-700 text-sm font-medium mb-8 animate-fade-in-up">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-600"></span>
+                        </span>
+                        Now available for Enterprise
+                    </div>
+
+                    <h1 className="font-heading text-5xl sm:text-7xl font-bold tracking-tight mb-8 text-slate-900 leading-tight">
+                        Secure Messaging for <br />
+                        <span className="text-brand-700 relative">
+                            Modern Teams
+                            <svg className="absolute w-full h-3 -bottom-1 left-0 text-brand-200 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
+                                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
+                            </svg>
+                        </span>
+                    </h1>
+
+                    <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-12 leading-relaxed font-light">
+                        End-to-end encrypted communication platform built for privacy-first companies.
+                        Verify your domain and start chatting securely in minutes.
                     </p>
 
-                    {/* CTA Buttons */}
-                    <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
-                        <button
-                            onClick={() => router.push('/domain-register')}
-                            className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-50 transition shadow-2xl w-full md:w-auto"
-                            suppressHydrationWarning
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                        <Link
+                            href="/domain-register"
+                            className="w-full sm:w-auto px-8 py-4 bg-brand-700 text-white rounded-xl font-semibold text-lg hover:bg-brand-800 transition-all shadow-xl shadow-brand-700/20 hover:shadow-2xl hover:shadow-brand-700/30 transform hover:-translate-y-1"
                         >
-                            🏢 Register Your Domain
-                        </button>
-                        <button
-                            onClick={() => router.push('/register')}
-                            className="bg-blue-500 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-blue-400 transition border-2 border-white w-full md:w-auto"
-                            suppressHydrationWarning
+                            Register Your Domain
+                        </Link>
+                        <Link
+                            href="/register"
+                            className="w-full sm:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold text-lg hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm hover:shadow-md"
                         >
-                            👤 Create Account
-                        </button>
+                            Join Existing Team
+                        </Link>
                     </div>
-
-                    <p className="text-blue-200 text-sm mt-6">
-                        Already have an account?{' '}
-                        <button
-                            onClick={() => router.push('/login')}
-                            className="text-white underline hover:text-blue-100"
-                            suppressHydrationWarning
-                        >
-                            Sign in here
-                        </button>
-                    </p>
-                </div>
-
-                {/* Features */}
-                <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                    <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-6 text-white">
-                        <div className="text-4xl mb-4">🔐</div>
-                        <h3 className="text-xl font-bold mb-2">Domain Verification</h3>
-                        <p className="text-blue-100">
-                            Verify your company domain via DNS to ensure only authorized users join your organization's chat.
-                        </p>
-                    </div>
-
-                    <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-6 text-white">
-                        <div className="text-4xl mb-4">💬</div>
-                        <h3 className="text-xl font-bold mb-2">Real-time Messaging</h3>
-                        <p className="text-blue-100">
-                            Chat instantly with your team members. Messages sync in real-time across all devices.
-                        </p>
-                    </div>
-
-                    <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-6 text-white">
-                        <div className="text-4xl mb-4">🛡️</div>
-                        <h3 className="text-xl font-bold mb-2">Enterprise Security</h3>
-                        <p className="text-blue-100">
-                            Built for businesses with features like audit logs, user management, and secure data storage.
-                        </p>
-                    </div>
-                </div>
-
-                {/* How It Works */}
-                <div className="mt-20 max-w-3xl mx-auto bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl p-8 text-white">
-                    <h3 className="text-2xl font-bold mb-6 text-center">How It Works</h3>
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold">1</div>
-                            <div>
-                                <h4 className="font-semibold mb-1">Admin Registers Domain</h4>
-                                <p className="text-blue-100 text-sm">Company administrator registers the company domain (e.g., acme.com)</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold">2</div>
-                            <div>
-                                <h4 className="font-semibold mb-1">Verify Domain via DNS</h4>
-                                <p className="text-blue-100 text-sm">Add a TXT record to your DNS to prove domain ownership</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-4">
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center font-bold">3</div>
-                            <div>
-                                <h4 className="font-semibold mb-1">Employees Create Accounts</h4>
-                                <p className="text-blue-100 text-sm">Team members register with their company email and start chatting!</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-20 text-center text-blue-200 text-sm">
-                    <p>© 2025 TSR CNC - My SecureChat. All rights reserved.</p>
-                    <p className="mt-2">Secure messaging for verified domains</p>
                 </div>
             </div>
+
+            {/* Features Grid */}
+            <div className="py-32 bg-slate-50/50">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-16">
+                        <h2 className="font-heading text-3xl font-bold text-slate-900 mb-4">Why Choose SecureChat?</h2>
+                        <p className="text-slate-500 max-w-2xl mx-auto">Built with security and usability in mind, providing the best experience for your organization.</p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-8">
+                        {/* Feature 1 */}
+                        <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 group">
+                            <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                <svg className="w-7 h-7 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <h3 className="font-heading text-xl font-bold mb-3 text-slate-900">Domain Verification</h3>
+                            <p className="text-slate-500 leading-relaxed">
+                                Strict DNS-based verification ensures only authorized employees with your company email can join your workspace.
+                            </p>
+                        </div>
+
+                        {/* Feature 2 */}
+                        <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 group">
+                            <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                <svg className="w-7 h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                                </svg>
+                            </div>
+                            <h3 className="font-heading text-xl font-bold mb-3 text-slate-900">Real-time Chat</h3>
+                            <p className="text-slate-500 leading-relaxed">
+                                Instant messaging powered by Socket.IO. Experience zero-latency communication with your team members.
+                            </p>
+                        </div>
+
+                        {/* Feature 3 */}
+                        <div className="p-8 rounded-3xl bg-white border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-brand-900/5 transition-all duration-300 group">
+                            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                <svg className="w-7 h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <h3 className="font-heading text-xl font-bold mb-3 text-slate-900">Enterprise Security</h3>
+                            <p className="text-slate-500 leading-relaxed">
+                                Bank-grade encryption, comprehensive audit logs, and role-based access control for complete peace of mind.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <footer className="py-12 border-t border-slate-100 bg-white text-center text-slate-400">
+                <p>© 2024 My SecureChat. All rights reserved.</p>
+            </footer>
         </div>
     );
 }

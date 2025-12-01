@@ -315,7 +315,8 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 email: user.email,
                 displayName: user.displayName,
-                domainId: user.domainId
+                domainId: user.domainId,
+                isDomainAdmin: user.isDomainAdmin
             },
             token,
             refreshToken
@@ -399,7 +400,8 @@ router.get('/me', async (req, res) => {
             id: user.id,
             email: user.email,
             displayName: user.displayName,
-            domainId: user.domainId
+            domainId: user.domainId,
+            isDomainAdmin: user.isDomainAdmin
         });
     } catch (error) {
         console.error('Auth error:', error);

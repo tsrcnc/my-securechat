@@ -31,6 +31,7 @@ export async function verifyDomainDNS(
 ): Promise<boolean> {
     try {
         const recordName = `_my-securechat-verification.${domain}`;
+        console.log(`[DEBUG] Resolving TXT for: "${recordName}"`);
 
         // Resolve TXT records for the verification subdomain
         const txtRecords = await dns.resolveTxt(recordName);
