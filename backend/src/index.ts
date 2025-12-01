@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import authRoutes from './routes/auth.routes';
+import domainRoutes from './routes/domain.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -47,6 +48,7 @@ app.get('/api', (req, res) => {
 
 // Mount routes
 app.use('/api/auth', authRoutes);
+app.use('/api/domains', domainRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

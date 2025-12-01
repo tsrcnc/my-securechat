@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { generateOTP, hashOTP, verifyOTP, getOTPExpiry, isOTPExpired } from '../lib/otp';
-import { sendOTPEmail } from '../lib/email';
+import { sendOTPEmail, sendDomainVerificationEmail } from '../lib/email';
 
 const router = Router();
 
@@ -139,10 +139,28 @@ router.post('/verify-otp', async (req, res) => {
                     verificationStatus: 'PENDING'
                 }
             });
+
+            // Send domain verification email to owner
+            try {
+                await sendDomainVerificationEmail(
+                    data.email,
+                    domainName,
+                    domain.verificationToken
+                );
+            } catch (emailError) {
+                console.error('Failed to send domain verification email:', emailError);
+                // Don't block registration if email fails
+            }
         }
 
         // Hash password
         const passwordHash = await bcrypt.hash(data.password, 12);
+
+        // Check if this is the first user from this domain
+        const existingUsersCount = await prisma.user.count({
+            where: { domainId: domain.id }
+        });
+        const isFirstUser = existingUsersCount === 0;
 
         // Create user
         const user = await prisma.user.create({
@@ -152,7 +170,8 @@ router.post('/verify-otp', async (req, res) => {
                 displayName: data.displayName,
                 domainId: domain.id,
                 status: 'ONLINE',
-                emailVerified: true // Verified via OTP
+                emailVerified: true, // Verified via OTP
+                isDomainAdmin: isFirstUser // First user becomes domain admin
             }
         });
 
