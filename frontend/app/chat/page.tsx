@@ -17,7 +17,18 @@ export default function ChatPage() {
             return;
         }
 
-        setUser(JSON.parse(userData));
+        try {
+            if (userData && userData !== "undefined") {
+                setUser(JSON.parse(userData));
+            } else {
+                console.error('Invalid user data in localStorage');
+                router.push('/login');
+            }
+        } catch (error) {
+            console.error('Error parsing user data:', error);
+            localStorage.removeItem('user'); // Clear invalid data
+            router.push('/login');
+        }
     }, [router]);
 
     const handleLogout = () => {
