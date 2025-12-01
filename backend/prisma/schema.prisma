@@ -1,0 +1,239 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Domain {
+  id                    String   @id @default(uuid())
+  domainName            String   @unique
+  verificationToken     String   @unique
+  verificationStatus    VerificationStatus @default(PENDING)
+  verificationMethod    VerificationMethod @default(DNS)
+  verifiedAt            DateTime?
+  ownerEmail            String
+  companyName           String?
+  contactPhone          String?
+  subscriptionStatus    SubscriptionStatus @default(TRIAL)
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  subscriptionAmount    Decimal  @default(999.00)
+  razorpaySubscriptionId String?
+  maxUsers              Int      @default(1000)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  users                 User[]
+  subscriptions         Subscription[]
+  
+  @@index([domainName])
+  @@index([verificationStatus])
+  @@index([subscriptionStatus])
+}
+
+model User {
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  domainId              String
+  passwordHash          String
+  displayName           String?
+  avatarUrl             String?
+  status                UserStatus @default(OFFLINE)
+  lastSeen              DateTime?
+  isDomainAdmin         Boolean  @default(false)
+  isPlatformAdmin       Boolean  @default(false)
+  emailVerified         Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  domain                Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  sentMessages          Message[] @relation("MessageSender")
+  conversationParticipants ConversationParticipant[]
+  messageReads          MessageRead[]
+  createdConversations  Conversation[]
+  auditLogs             AuditLog[]
+  
+  @@index([email])
+  @@index([domainId])
+  @@index([status])
+}
+
+model Conversation {
+  id                    String   @id @default(uuid())
+  type                  ConversationType
+  name                  String?
+  avatarUrl             String?
+  createdById           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  lastMessageAt         DateTime?
+  
+  createdBy             User?    @relation(fields: [createdById], references: [id])
+  participants          ConversationParticipant[]
+  messages              Message[]
+  
+  @@index([type])
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id                    String   @id @default(uuid())
+  conversationId        String
+  userId                String
+  role                  ParticipantRole @default(MEMBER)
+  joinedAt              DateTime @default(now())
+  lastReadAt            DateTime?
+  notificationSettings  Json     @default("{\"muted\": false}")
+  
+  conversation          Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+}
+
+model Message {
+  id                    String   @id @default(uuid())
+  conversationId        String
+  senderId              String?
+  messageType           MessageType @default(TEXT)
+  content               String?
+  mediaUrl              String?
+  mediaMetadata         Json?
+  replyToId             String?
+  isEdited              Boolean  @default(false)
+  isDeleted             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  conversation          Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender                User?    @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  replyTo               Message? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies               Message[] @relation("MessageReplies")
+  reads                 MessageRead[]
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model MessageRead {
+  id                    String   @id @default(uuid())
+  messageId             String
+  userId                String
+  readAt                DateTime @default(now())
+  
+  message               Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model Subscription {
+  id                    String   @id @default(uuid())
+  domainId              String
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
+  razorpaySubscriptionId String?
+  amount                Decimal
+  currency              String   @default("INR")
+  status                PaymentStatus @default(CREATED)
+  billingCycle          BillingCycle @default(YEARLY)
+  startDate             DateTime?
+  endDate               DateTime?
+  autoRenew             Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  domain                Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  
+  @@index([domainId])
+  @@index([status])
+  @@index([razorpaySubscriptionId])
+}
+
+model AuditLog {
+  id                    String   @id @default(uuid())
+  userId                String?
+  domainId              String?
+  action                String
+  resourceType          String?
+  resourceId            String?
+  ipAddress             String?
+  userAgent             String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  
+  user                  User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([domainId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Enums
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum VerificationMethod {
+  DNS
+  MANUAL
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum UserStatus {
+  ONLINE
+  OFFLINE
+  AWAY
+  BUSY
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum ParticipantRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
