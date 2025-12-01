@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import authRoutes from './routes/auth.routes';
 
 dotenv.config();
 
@@ -44,6 +45,9 @@ app.get('/api', (req, res) => {
     });
 });
 
+// Mount routes
+app.use('/api/auth', authRoutes);
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
@@ -64,6 +68,7 @@ const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Socket.IO server ready`);
+    console.log(`🔐 Auth routes: /api/auth`);
 });
 
 export { app, io };
