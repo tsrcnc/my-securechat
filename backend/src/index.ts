@@ -1,18 +1,18 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import authRoutes from './routes/auth.routes';
-
-dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+        origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3003'],
         credentials: true
     }
 });
@@ -20,7 +20,7 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(helmet());
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3003'],
     credentials: true
 }));
 app.use(express.json());
