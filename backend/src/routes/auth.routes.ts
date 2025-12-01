@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { prisma } from '../lib/prisma';
 
 const router = Router();
 
@@ -10,16 +11,23 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8),
     displayName: z.string().min(2).max(100),
-    domainId: z.string().uuid()
+    // domainId is optional for now, or we can auto-create a domain based on email
+    // For this phase, let's assume we are just creating a user and linking to a default domain or null if schema allows
+    // Looking at schema, domainId is required. 
+    // For now, we will create a dummy domain if it doesn't exist or handle it.
+    // BUT, the UI sends domainId? No, the UI sends email/password/displayName.
+    // Let's check the schema again. User model has `domainId String`.
+    // We need to handle domain creation or assignment.
+    // For simplicity in Phase 2, let's create a default domain for the user or allow null if we change schema.
+    // Schema says: domainId String (Required).
+    // So we MUST have a domain.
+    // Let's auto-create a domain based on the email domain part (e.g. user@tsrcnc.com -> tsrcnc.com)
 });
 
 const loginSchema = z.object({
     email: z.string().email(),
     password: z.string()
 });
-
-// Mock user storage (replace with Prisma later)
-const users: any[] = [];
 
 /**
  * POST /api/auth/register
@@ -31,27 +39,49 @@ router.post('/register', async (req, res) => {
         const data = registerSchema.parse(req.body);
 
         // Check if user already exists
-        const existingUser = users.find(u => u.email === data.email);
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email }
+        });
+
         if (existingUser) {
             return res.status(400).json({ error: 'User already exists' });
+        }
+
+        // Extract domain from email
+        const domainName = data.email.split('@')[1];
+
+        // Find or create domain
+        let domain = await prisma.domain.findUnique({
+            where: { domainName }
+        });
+
+        if (!domain) {
+            // Create new domain
+            domain = await prisma.domain.create({
+                data: {
+                    domainName,
+                    verificationToken: Math.random().toString(36).substring(7), // Simple token
+                    ownerEmail: data.email,
+                    verificationStatus: 'PENDING'
+                }
+            });
         }
 
         // Hash password
         const passwordHash = await bcrypt.hash(data.password, 12);
 
         // Create user
-        const user = {
-            id: Math.random().toString(36).substring(7),
-            email: data.email,
-            passwordHash,
-            displayName: data.displayName,
-            domainId: data.domainId,
-            createdAt: new Date()
-        };
+        const user = await prisma.user.create({
+            data: {
+                email: data.email,
+                passwordHash,
+                displayName: data.displayName,
+                domainId: domain.id,
+                status: 'ONLINE'
+            }
+        });
 
-        users.push(user);
-
-        // Generate JWT token
+        // Generate tokens
         const token = jwt.sign(
             { userId: user.id, email: user.email },
             process.env.JWT_ACCESS_SECRET || 'secret',
@@ -69,7 +99,8 @@ router.post('/register', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                displayName: user.displayName
+                displayName: user.displayName,
+                domainId: user.domainId
             },
             token,
             refreshToken
@@ -93,7 +124,10 @@ router.post('/login', async (req, res) => {
         const data = loginSchema.parse(req.body);
 
         // Find user
-        const user = users.find(u => u.email === data.email);
+        const user = await prisma.user.findUnique({
+            where: { email: data.email }
+        });
+
         if (!user) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -122,7 +156,8 @@ router.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 email: user.email,
-                displayName: user.displayName
+                displayName: user.displayName,
+                domainId: user.domainId
             },
             token,
             refreshToken
@@ -155,7 +190,10 @@ router.post('/refresh', async (req, res) => {
         ) as any;
 
         // Find user
-        const user = users.find(u => u.id === decoded.userId);
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId }
+        });
+
         if (!user) {
             return res.status(401).json({ error: 'Invalid token' });
         }
@@ -191,7 +229,10 @@ router.get('/me', async (req, res) => {
             process.env.JWT_ACCESS_SECRET || 'secret'
         ) as any;
 
-        const user = users.find(u => u.id === decoded.userId);
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId }
+        });
+
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
