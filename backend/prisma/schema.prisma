@@ -64,6 +64,18 @@ model User {
   @@index([status])
 }
 
+model EmailVerification {
+  id                    String   @id @default(uuid())
+  email                 String
+  otpHash               String
+  expiresAt             DateTime
+  createdAt             DateTime @default(now())
+  
+  @@index([email])
+  @@index([expiresAt])
+}
+
+
 model Conversation {
   id                    String   @id @default(uuid())
   type                  ConversationType

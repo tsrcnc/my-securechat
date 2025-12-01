@@ -3,25 +3,25 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { generateOTP, hashOTP, verifyOTP, getOTPExpiry, isOTPExpired } from '../lib/otp';
+import { sendOTPEmail } from '../lib/email';
 
 const router = Router();
 
 // Validation schemas
 const registerSchema = z.object({
     email: z.string().email(),
+});
+
+const verifyOtpSchema = z.object({
+    email: z.string().email(),
+    otp: z.string().length(6),
     password: z.string().min(8),
     displayName: z.string().min(2).max(100),
-    // domainId is optional for now, or we can auto-create a domain based on email
-    // For this phase, let's assume we are just creating a user and linking to a default domain or null if schema allows
-    // Looking at schema, domainId is required. 
-    // For now, we will create a dummy domain if it doesn't exist or handle it.
-    // BUT, the UI sends domainId? No, the UI sends email/password/displayName.
-    // Let's check the schema again. User model has `domainId String`.
-    // We need to handle domain creation or assignment.
-    // For simplicity in Phase 2, let's create a default domain for the user or allow null if we change schema.
-    // Schema says: domainId String (Required).
-    // So we MUST have a domain.
-    // Let's auto-create a domain based on the email domain part (e.g. user@tsrcnc.com -> tsrcnc.com)
+});
+
+const resendOtpSchema = z.object({
+    email: z.string().email(),
 });
 
 const loginSchema = z.object({
@@ -31,11 +31,10 @@ const loginSchema = z.object({
 
 /**
  * POST /api/auth/register
- * Register a new user
+ * Step 1: Initiate registration by sending OTP
  */
 router.post('/register', async (req, res) => {
     try {
-        // Validate input
         const data = registerSchema.parse(req.body);
 
         // Check if user already exists
@@ -47,6 +46,82 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'User already exists' });
         }
 
+        // Generate OTP
+        const otp = generateOTP();
+        const otpHash = await hashOTP(otp);
+        const expiresAt = getOTPExpiry();
+
+        // Store OTP in database (upsert to handle multiple requests)
+        // First delete any existing OTPs for this email to keep it clean
+        await prisma.emailVerification.deleteMany({
+            where: { email: data.email }
+        });
+
+        await prisma.emailVerification.create({
+            data: {
+                email: data.email,
+                otpHash,
+                expiresAt
+            }
+        });
+
+        // Send OTP via email
+        await sendOTPEmail(data.email, otp);
+
+        res.json({
+            message: 'Verification code sent to email',
+            email: data.email
+        });
+
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Step 2: Verify OTP and create account
+ */
+router.post('/verify-otp', async (req, res) => {
+    try {
+        const data = verifyOtpSchema.parse(req.body);
+
+        // Find OTP record
+        const verification = await prisma.emailVerification.findFirst({
+            where: { email: data.email },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (!verification) {
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
+
+        // Check expiry
+        if (isOTPExpired(verification.expiresAt)) {
+            return res.status(400).json({ error: 'Verification code expired' });
+        }
+
+        // Verify OTP
+        const isValid = await verifyOTP(data.otp, verification.otpHash);
+        if (!isValid) {
+            return res.status(400).json({ error: 'Invalid verification code' });
+        }
+
+        // Check if user exists (double check)
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email }
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        // --- Account Creation Logic ---
+
         // Extract domain from email
         const domainName = data.email.split('@')[1];
 
@@ -56,11 +131,10 @@ router.post('/register', async (req, res) => {
         });
 
         if (!domain) {
-            // Create new domain
             domain = await prisma.domain.create({
                 data: {
                     domainName,
-                    verificationToken: Math.random().toString(36).substring(7), // Simple token
+                    verificationToken: Math.random().toString(36).substring(7),
                     ownerEmail: data.email,
                     verificationStatus: 'PENDING'
                 }
@@ -77,8 +151,14 @@ router.post('/register', async (req, res) => {
                 passwordHash,
                 displayName: data.displayName,
                 domainId: domain.id,
-                status: 'ONLINE'
+                status: 'ONLINE',
+                emailVerified: true // Verified via OTP
             }
+        });
+
+        // Delete used OTP
+        await prisma.emailVerification.delete({
+            where: { id: verification.id }
         });
 
         // Generate tokens
@@ -95,7 +175,7 @@ router.post('/register', async (req, res) => {
         );
 
         res.status(201).json({
-            message: 'User registered successfully',
+            message: 'Account created successfully',
             user: {
                 id: user.id,
                 email: user.email,
@@ -105,11 +185,62 @@ router.post('/register', async (req, res) => {
             token,
             refreshToken
         });
+
     } catch (error) {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: error.errors });
         }
-        console.error('Registration error:', error);
+        console.error('OTP Verification error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * POST /api/auth/resend-otp
+ * Resend verification code
+ */
+router.post('/resend-otp', async (req, res) => {
+    try {
+        const data = resendOtpSchema.parse(req.body);
+
+        // Check if user already exists
+        const existingUser = await prisma.user.findUnique({
+            where: { email: data.email }
+        });
+
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        // Generate new OTP
+        const otp = generateOTP();
+        const otpHash = await hashOTP(otp);
+        const expiresAt = getOTPExpiry();
+
+        // Delete old OTPs
+        await prisma.emailVerification.deleteMany({
+            where: { email: data.email }
+        });
+
+        // Create new OTP
+        await prisma.emailVerification.create({
+            data: {
+                email: data.email,
+                otpHash,
+                expiresAt
+            }
+        });
+
+        // Send email
+        await sendOTPEmail(data.email, otp);
+
+        res.json({ message: 'Verification code resent' });
+
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        console.error('Resend OTP error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
