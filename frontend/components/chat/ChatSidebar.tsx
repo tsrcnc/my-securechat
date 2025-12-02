@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import AddContactModal from './AddContactModal';
 import CreateGroupModal from './CreateGroupModal';
 
+import ProfileModal from './ProfileModal';
+
 interface Channel {
     id: string;
     name: string;
@@ -51,6 +53,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
 
     const [isAddContactOpen, setIsAddContactOpen] = useState(false);
     const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+    const [viewingProfile, setViewingProfile] = useState<any>(null);
 
     const fetchData = async () => {
         try {
@@ -139,7 +142,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
             `}>
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-                    <div className="flex items-center">
+                    <div className="flex items-center cursor-pointer hover:opacity-80" onClick={() => setViewingProfile(currentUser)}>
                         <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold mr-2">
                             {currentUser?.displayName?.charAt(0).toUpperCase()}
                         </div>
@@ -195,7 +198,13 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                             </button>
                             {contacts.map(contact => (
                                 <button key={contact.id} onClick={() => startDM(contact.id)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3">
+                                    <div
+                                        className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3 hover:ring-2 hover:ring-brand-500 transition-all"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setViewingProfile(contact);
+                                        }}
+                                    >
                                         {contact.displayName?.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
@@ -231,6 +240,12 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
 
             <AddContactModal isOpen={isAddContactOpen} onClose={() => setIsAddContactOpen(false)} onAddContact={handleAddContact} />
             <CreateGroupModal isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} contacts={contacts} onCreateGroup={handleCreateGroup} />
+            <ProfileModal
+                isOpen={!!viewingProfile}
+                onClose={() => setViewingProfile(null)}
+                user={viewingProfile}
+                isCurrentUser={viewingProfile?.id === currentUser?.id}
+            />
         </>
     );
 }

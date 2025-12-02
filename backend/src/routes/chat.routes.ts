@@ -133,4 +133,127 @@ router.get('/channels', async (req, res) => {
     }
 });
 
+// Delete a conversation
+router.delete('/conversation/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user.userId;
+
+        // Verify participation
+        const participant = await prisma.conversationParticipant.findUnique({
+            where: {
+                conversationId_userId: {
+                    conversationId: id,
+                    userId
+                }
+            }
+        });
+
+        if (!participant) {
+            return res.status(403).json({ error: 'Not a participant' });
+        }
+
+        await prisma.conversationParticipant.delete({
+            where: {
+                conversationId_userId: {
+                    conversationId: id,
+                    userId
+                }
+            }
+        });
+
+        // Check if any participants left
+        const remaining = await prisma.conversationParticipant.count({
+            where: { conversationId: id }
+        });
+
+        if (remaining === 0) {
+            await prisma.conversation.delete({ where: { id } });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        res.status(500).json({ error: 'Failed to delete conversation' });
+    }
+});
+
+// Block a user
+router.post('/block', authenticateToken, async (req, res) => {
+    try {
+        const { blockedId } = req.body;
+        const blockerId = (req as any).user.userId;
+
+        await prisma.blockedUser.create({
+            data: {
+                blockerId,
+                blockedId
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error blocking user:', error);
+        res.status(500).json({ error: 'Failed to block user' });
+    }
+});
+
+// Leave a group
+router.post('/group/leave', authenticateToken, async (req, res) => {
+    try {
+        const { conversationId } = req.body;
+        const userId = (req as any).user.userId;
+
+        await prisma.conversationParticipant.delete({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId
+                }
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error leaving group:', error);
+        res.status(500).json({ error: 'Failed to leave group' });
+    }
+});
+
+// Remove user from group (Admin only)
+router.post('/group/remove', authenticateToken, async (req, res) => {
+    try {
+        const { conversationId, targetUserId } = req.body;
+        const requesterId = (req as any).user.userId;
+
+        // Check if requester is admin
+        const requester = await prisma.conversationParticipant.findUnique({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId: requesterId
+                }
+            }
+        });
+
+        if (!requester || requester.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Only admins can remove participants' });
+        }
+
+        await prisma.conversationParticipant.delete({
+            where: {
+                conversationId_userId: {
+                    conversationId,
+                    userId: targetUserId
+                }
+            }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error removing participant:', error);
+        res.status(500).json({ error: 'Failed to remove participant' });
+    }
+});
+
 export default router;

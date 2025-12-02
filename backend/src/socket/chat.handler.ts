@@ -55,4 +55,43 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
             socket.emit('error', { message: 'Failed to send message' });
         }
     });
+});
+
+// Mark message as delivered
+socket.on('mark_delivered', async (data: { messageId: string; userId: string }) => {
+    try {
+        const { messageId, userId } = data;
+        await prisma.message.update({
+            where: { id: messageId },
+            data: { status: 'DELIVERED' }
+        });
+
+        // Notify sender (we need to find the sender, or just broadcast to the room and let client filter)
+        // Better: Broadcast to the conversation room.
+        const message = await prisma.message.findUnique({ where: { id: messageId } });
+        if (message && message.conversationId) {
+            io.to(message.conversationId).emit('message_status_update', { messageId, status: 'DELIVERED' });
+        }
+    } catch (error) {
+        console.error('Error marking delivered:', error);
+    }
+});
+
+// Mark message as read
+socket.on('mark_read', async (data: { messageId: string; userId: string }) => {
+    try {
+        const { messageId, userId } = data;
+        await prisma.message.update({
+            where: { id: messageId },
+            data: { status: 'READ' }
+        });
+
+        const message = await prisma.message.findUnique({ where: { id: messageId } });
+        if (message && message.conversationId) {
+            io.to(message.conversationId).emit('message_status_update', { messageId, status: 'READ' });
+        }
+    } catch (error) {
+        console.error('Error marking read:', error);
+    }
+});
 };

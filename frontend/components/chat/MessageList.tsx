@@ -5,6 +5,7 @@ interface Message {
     content: string;
     senderId: string;
     createdAt: string;
+    status?: 'SENT' | 'DELIVERED' | 'READ';
     User?: {
         displayName: string;
     };
@@ -25,6 +26,31 @@ export default function MessageList({ messages, currentUser }: MessageListProps)
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    const renderStatus = (status?: string) => {
+        if (!status || status === 'SENT') {
+            return (
+                <svg className="w-3 h-3 text-brand-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            );
+        }
+        if (status === 'DELIVERED') {
+            return (
+                <div className="flex">
+                    <svg className="w-3 h-3 text-brand-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-3 h-3 text-brand-200 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                </div>
+            );
+        }
+        if (status === 'READ') {
+            return (
+                <div className="flex">
+                    <svg className="w-3 h-3 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <svg className="w-3 h-3 text-blue-300 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                </div>
+            );
+        }
+        return null;
+    };
 
     return (
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
@@ -55,10 +81,12 @@ export default function MessageList({ messages, currentUser }: MessageListProps)
                                     </p>
                                 )}
                                 <p className="text-sm md:text-base leading-relaxed break-words">{msg.content}</p>
-                                <p className={`text-[10px] mt-1 text-right ${isOwn ? 'text-brand-100' : 'text-gray-400'
-                                    }`}>
-                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
+                                <div className={`flex items-center justify-end space-x-1 mt-1`}>
+                                    <p className={`text-[10px] ${isOwn ? 'text-brand-100' : 'text-gray-400'}`}>
+                                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    {isOwn && renderStatus(msg.status)}
+                                </div>
                             </div>
                         </div>
                     );

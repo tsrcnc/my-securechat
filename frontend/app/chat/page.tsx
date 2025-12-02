@@ -6,6 +6,7 @@ import { io, Socket } from 'socket.io-client';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import MessageList from '@/components/chat/MessageList';
 import ChatInput from '@/components/chat/ChatInput';
+import ProfileModal from '@/components/chat/ProfileModal';
 
 interface User {
     id: string;
@@ -29,9 +30,12 @@ export default function ChatPage() {
     const [currentConversationId, setCurrentConversationId] = useState<string>('');
     const [currentConversationType, setCurrentConversationType] = useState<'DIRECT' | 'GROUP' | 'CHANNEL' | ''>('');
     const [currentChatName, setCurrentChatName] = useState<string>('');
+    const [currentTarget, setCurrentTarget] = useState<any>(null);
 
     const [messages, setMessages] = useState<any[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [viewingProfile, setViewingProfile] = useState<any>(null);
 
     // Auth check
     useEffect(() => {
@@ -148,6 +152,7 @@ export default function ChatPage() {
     const handleConversationSelect = (id: string, type: 'DIRECT' | 'GROUP' | 'CHANNEL', target: any) => {
         setCurrentConversationId(id);
         setCurrentConversationType(type);
+        setCurrentTarget(target);
 
         if (type === 'CHANNEL') {
             setCurrentChatName(`# ${target.name}`);
@@ -158,6 +163,66 @@ export default function ChatPage() {
             setCurrentChatName(otherUser?.displayName || 'Chat');
         }
         setIsSidebarOpen(false); // Close sidebar on mobile
+    };
+
+    const handleBlockUser = async () => {
+        if (!currentTarget || currentConversationType !== 'DIRECT') return;
+
+        const otherUser = currentTarget.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
+        if (!otherUser) return;
+
+        if (confirm(`Are you sure you want to block ${otherUser.displayName}?`)) {
+            try {
+                const token = localStorage.getItem('token');
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/block`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ blockedId: otherUser.id })
+                });
+                alert('User blocked');
+                // Ideally refresh or redirect
+            } catch (error) {
+                console.error('Failed to block user', error);
+            }
+        }
+    };
+
+    const handleDeleteChat = async () => {
+        if (!currentConversationId) return;
+        if (confirm('Are you sure you want to delete this chat? This cannot be undone.')) {
+            try {
+                const token = localStorage.getItem('token');
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/conversation/${currentConversationId}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setCurrentConversationId('');
+                setCurrentConversationType('');
+                // Refresh list? Sidebar should handle it via socket or refresh
+                window.location.reload(); // Simple refresh for MVP
+            } catch (error) {
+                console.error('Failed to delete chat', error);
+            }
+        }
+    };
+
+    const handleLeaveGroup = async () => {
+        if (!currentConversationId || currentConversationType !== 'GROUP') return;
+        if (confirm('Are you sure you want to leave this group?')) {
+            try {
+                const token = localStorage.getItem('token');
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/group/leave`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ conversationId: currentConversationId })
+                });
+                setCurrentConversationId('');
+                setCurrentConversationType('');
+                window.location.reload();
+            } catch (error) {
+                console.error('Failed to leave group', error);
+            }
+        }
     };
 
     const handleLogout = () => {
@@ -207,9 +272,81 @@ export default function ChatPage() {
                     </div>
                     <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline mr-4">
                             {isConnected ? 'Connected' : 'Disconnected'}
                         </span>
+
+                        {/* Actions Menu */}
+                        {currentConversationId && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                                </button>
+
+                                {isMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                                        <button
+                                            onClick={() => {
+                                                setIsMenuOpen(false);
+                                                // Find the user object to show profile
+                                                // For DM, it's the other participant. For Group, maybe show group info?
+                                                // MVP: Just show profile for DM.
+                                                if (currentConversationType === 'DIRECT') {
+                                                    // We need to find the other user object. 
+                                                    // We don't have the full conversation object here easily unless we store it.
+                                                    // But we have the name. 
+                                                    // Let's rely on fetching it or just passing what we have.
+                                                    // Actually, we can fetch the conversation details or store them in state.
+                                                    // For now, let's just show a "Not implemented for groups" or similar if group.
+                                                    // Wait, I can pass the target object from handleConversationSelect to state!
+                                                    setViewingProfile(currentTarget);
+                                                }
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        >
+                                            View Profile
+                                        </button>
+
+                                        {currentConversationType === 'DIRECT' && (
+                                            <button
+                                                onClick={() => {
+                                                    setIsMenuOpen(false);
+                                                    handleBlockUser();
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            >
+                                                Block User
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => {
+                                                setIsMenuOpen(false);
+                                                handleDeleteChat();
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                        >
+                                            Delete Chat
+                                        </button>
+
+                                        {currentConversationType === 'GROUP' && (
+                                            <button
+                                                onClick={() => {
+                                                    setIsMenuOpen(false);
+                                                    handleLeaveGroup();
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                            >
+                                                Leave Group
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -228,6 +365,12 @@ export default function ChatPage() {
                     </div>
                 )}
             </div>
+
+            <ProfileModal
+                isOpen={!!viewingProfile}
+                onClose={() => setViewingProfile(null)}
+                user={viewingProfile}
+            />
         </div>
     );
 }
