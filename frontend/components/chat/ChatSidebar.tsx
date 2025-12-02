@@ -54,7 +54,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
 
     const fetchData = async () => {
         try {
-            const token = localStorage.getItem('accessToken');
+            const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
 
             // Fetch Channels (Legacy/Public)
@@ -82,7 +82,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
     }, []);
 
     const handleAddContact = async (email: string) => {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('token');
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -96,7 +96,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
     };
 
     const handleCreateGroup = async (name: string, participantIds: string[]) => {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('token');
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -112,7 +112,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
     };
 
     const startDM = async (contactId: string) => {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem('token');
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
