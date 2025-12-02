@@ -141,6 +141,17 @@ function DomainVerifyContent() {
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-5xl mx-auto space-y-8">
 
+                {/* Progress Steps */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        <span className="text-brand-700">Step 2 of 3</span>
+                        <span>Verify Ownership</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-600 w-2/3 rounded-full"></div>
+                    </div>
+                </div>
+
                 {/* Header Section */}
                 <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -290,10 +301,10 @@ function DomainVerifyContent() {
                             You can now register user accounts with <strong>@{domainName}</strong> emails.
                         </p>
                         <a
-                            href="/register"
+                            href={`/register?type=admin&email=${domainInfo.ownerEmail}`}
                             className="inline-block bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-600/20"
                         >
-                            Create User Account →
+                            Step 3: Create Admin Account →
                         </a>
                     </div>
                 )}

@@ -70,6 +70,17 @@ export default function DomainRegisterPage() {
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                {/* Progress Steps */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        <span className="text-brand-700">Step 1 of 3</span>
+                        <span>Register Domain</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-600 w-1/3 rounded-full"></div>
+                    </div>
+                </div>
+
                 <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/50 sm:rounded-2xl sm:px-10 border border-slate-100">
                     <form className="space-y-6" onSubmit={handleSubmit}>
 
