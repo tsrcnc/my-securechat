@@ -28,20 +28,17 @@ Note: DNS changes may take up to 24 hours to propagate, but usually complete wit
 export async function verifyDomainDNS(
     domain: string,
     expectedToken: string
-): Promise<boolean> {
+): Promise<{ verified: boolean; foundRecords: string[] }> {
     try {
         const recordName = `_my-securechat-verification.${domain}`;
         console.log(`[DEBUG] Resolving TXT for: "${recordName}"`);
 
         // Resolve TXT records for the verification subdomain
         const txtRecords = await dns.resolveTxt(recordName);
+        const foundRecords = txtRecords.map(r => r.join(''));
 
         // Check if any TXT record matches the expected token
-        // TXT records are returned as arrays of strings, we need to join them
-        const isVerified = txtRecords.some(record => {
-            const recordValue = record.join('');
-            return recordValue === expectedToken;
-        });
+        const isVerified = foundRecords.includes(expectedToken);
 
         if (isVerified) {
             console.log(`✓ Domain ${domain} verified successfully`);
@@ -49,7 +46,7 @@ export async function verifyDomainDNS(
             console.log(`✗ Domain ${domain} verification failed - token mismatch`);
         }
 
-        return isVerified;
+        return { verified: isVerified, foundRecords };
     } catch (error: any) {
         // DNS lookup errors (ENOTFOUND, ENODATA, etc.)
         if (error.code === 'ENOTFOUND' || error.code === 'ENODATA') {
@@ -57,7 +54,7 @@ export async function verifyDomainDNS(
         } else {
             console.error(`DNS verification error for ${domain}:`, error);
         }
-        return false;
+        return { verified: false, foundRecords: [] };
     }
 }
 
@@ -71,13 +68,13 @@ export async function verifyDomain(
     method: 'DNS' | 'MANUAL' = 'DNS'
 ): Promise<{ verified: boolean; method: string; details?: string }> {
     if (method === 'DNS') {
-        const verified = await verifyDomainDNS(domain, token);
+        const { verified, foundRecords } = await verifyDomainDNS(domain, token);
         return {
             verified,
             method: 'DNS',
             details: verified
                 ? `DNS TXT record found and verified`
-                : `DNS TXT record not found or token mismatch`
+                : `DNS TXT record not found or token mismatch. Found: ${JSON.stringify(foundRecords)}`
         };
     }
 
