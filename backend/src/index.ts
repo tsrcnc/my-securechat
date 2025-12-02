@@ -9,6 +9,7 @@ import { Server } from 'socket.io';
 import authRoutes from './routes/auth.routes';
 import domainRoutes from './routes/domain.routes';
 import chatRoutes from './routes/chat.routes';
+import contactRoutes from './routes/contact.routes';
 import { setupChatHandlers } from './socket/chat.handler';
 
 const app = express();
@@ -44,6 +45,7 @@ app.get('/api', (req, res) => {
             auth: '/api/auth',
             domains: '/api/domains',
             chat: '/api/chat',
+            contacts: '/api/contacts',
             messages: '/api/messages'
         }
     });
@@ -53,6 +55,7 @@ app.get('/api', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/domains', domainRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/contacts', contactRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

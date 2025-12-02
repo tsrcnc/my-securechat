@@ -100,6 +100,20 @@ model Channel {
   @@index([domainId])
 }
 
+model Contact {
+  id        String   @id @default(uuid())
+  userId    String
+  contactId String
+  nickname  String?
+  createdAt DateTime @default(now())
+  User      User     @relation("UserContacts", fields: [userId], references: [id])
+  Contact   User     @relation("ContactUser", fields: [contactId], references: [id])
+
+  @@unique([userId, contactId])
+  @@index([userId])
+  @@index([contactId])
+}
+
 model EmailVerification {
   id        String   @id @default(uuid())
   email     String
@@ -194,6 +208,8 @@ model User {
   ConversationParticipant ConversationParticipant[]
   Message                 Message[]
   MessageRead             MessageRead[]
+  contacts                Contact[]                 @relation("UserContacts")
+  contactOf               Contact[]                 @relation("ContactUser")
   Domain                  Domain                    @relation(fields: [domainId], references: [id], onDelete: Cascade)
 
   @@index([domainId])

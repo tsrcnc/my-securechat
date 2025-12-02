@@ -10,16 +10,27 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
         console.log(`User ${socket.id} joined channel ${channelId}`);
     });
 
+    // Join a conversation room
+    socket.on('join_conversation', async (conversationId: string) => {
+        socket.join(conversationId);
+        console.log(`User ${socket.id} joined conversation ${conversationId}`);
+    });
+
     // Send a message
-    socket.on('send_message', async (data: { channelId: string; content: string; senderId: string }) => {
+    socket.on('send_message', async (data: { channelId?: string; conversationId?: string; content: string; senderId: string }) => {
         try {
-            const { channelId, content, senderId } = data;
+            const { channelId, conversationId, content, senderId } = data;
+
+            if (!channelId && !conversationId) {
+                throw new Error('Target (channel or conversation) is required');
+            }
 
             // Save to DB
             const message = await prisma.message.create({
                 data: {
                     content,
-                    channelId,
+                    channelId: channelId || undefined,
+                    conversationId: conversationId || undefined,
                     senderId,
                     messageType: 'TEXT',
                 },
@@ -35,7 +46,10 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
             });
 
             // Broadcast to room
-            io.to(channelId).emit('receive_message', message);
+            const targetRoom = channelId || conversationId;
+            if (targetRoom) {
+                io.to(targetRoom).emit('receive_message', message);
+            }
         } catch (error) {
             console.error('Error sending message:', error);
             socket.emit('error', { message: 'Failed to send message' });
