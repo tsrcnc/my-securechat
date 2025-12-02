@@ -8,6 +8,8 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import authRoutes from './routes/auth.routes';
 import domainRoutes from './routes/domain.routes';
+import chatRoutes from './routes/chat.routes';
+import { setupChatHandlers } from './socket/chat.handler';
 
 const app = express();
 const httpServer = createServer(app);
@@ -41,6 +43,7 @@ app.get('/api', (req, res) => {
             health: '/health',
             auth: '/api/auth',
             domains: '/api/domains',
+            chat: '/api/chat',
             messages: '/api/messages'
         }
     });
@@ -49,10 +52,14 @@ app.get('/api', (req, res) => {
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/domains', domainRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+
+    // Initialize chat handlers
+    setupChatHandlers(io, socket);
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);

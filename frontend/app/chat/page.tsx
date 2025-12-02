@@ -3,14 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
-
-interface Message {
-    id: string;
-    text: string;
-    sender: string;
-    timestamp: number;
-    isOwn: boolean;
-}
+import ChatSidebar from '@/components/chat/ChatSidebar';
+import MessageList from '@/components/chat/MessageList';
+import ChatInput from '@/components/chat/ChatInput';
 
 interface User {
     id: string;
@@ -19,43 +14,42 @@ interface User {
     isDomainAdmin: boolean;
 }
 
+interface Channel {
+    id: string;
+    name: string;
+    type: 'PUBLIC' | 'PRIVATE';
+}
+
 export default function ChatPage() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [inputMessage, setInputMessage] = useState('');
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [currentChannelId, setCurrentChannelId] = useState<string>('');
+    const [currentChannelName, setCurrentChannelName] = useState<string>('');
+    const [messages, setMessages] = useState<any[]>([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Scroll to bottom of messages
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
+    // Auth check
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    useEffect(() => {
-        // Check if user is logged in
         const token = localStorage.getItem('token');
         if (!token) {
             router.push('/login');
             return;
         }
-
-        // Fetch user data
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
+    }, [router]);
 
-        // Initialize Socket.IO connection
+    // Socket connection
+    useEffect(() => {
+        if (!user) return;
+
+        const token = localStorage.getItem('token');
         const newSocket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000', {
-            auth: {
-                token: token
-            }
+            auth: { token }
         });
 
         newSocket.on('connect', () => {
@@ -68,14 +62,21 @@ export default function ChatPage() {
             setIsConnected(false);
         });
 
-        newSocket.on('message', (data: any) => {
-            setMessages((prev) => [...prev, {
-                id: Date.now().toString() + Math.random().toString(), // Temporary ID generation
-                text: data.text,
-                sender: data.sender || 'Unknown',
-                timestamp: Date.now(),
-                isOwn: data.sender === (JSON.parse(localStorage.getItem('user') || '{}').displayName)
-            }]);
+        newSocket.on('receive_message', (message: any) => {
+            // Only add if it belongs to current channel
+            // We need to use a functional update to access the latest currentChannelId if we didn't include it in dependency
+            // But here we can just check against the state if we include it in dependency or use a ref.
+            // However, including currentChannelId in dependency causes re-connection.
+            // Better to check inside the callback or rely on server to only send to joined room.
+            // Since we join rooms, we should only receive messages for joined rooms.
+            // But if we are joined to multiple, we need to filter.
+            // For now, let's trust the server room logic, but filtering is safer.
+            setMessages(prev => {
+                if (message.channelId === currentChannelId) {
+                    return [...prev, message];
+                }
+                return prev; // Or maybe show a notification for other channels?
+            });
         });
 
         setSocket(newSocket);
@@ -83,21 +84,41 @@ export default function ChatPage() {
         return () => {
             newSocket.disconnect();
         };
-    }, [router]);
+    }, [user]);
 
-    const handleSendMessage = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!inputMessage.trim() || !socket) return;
+    // Join channel and fetch history when selected
+    useEffect(() => {
+        if (socket && currentChannelId) {
+            socket.emit('join_channel', currentChannelId);
+            fetchHistory(currentChannelId);
+        }
+    }, [currentChannelId, socket]);
 
-        const messageData = {
-            text: inputMessage,
-            sender: user?.displayName,
-            timestamp: Date.now()
-        };
+    const fetchHistory = async (channelId: string) => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat/history/${channelId}`);
+            if (res.ok) {
+                const data = await res.json();
+                setMessages(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch history', error);
+        }
+    };
 
-        // Emit message to server
-        socket.emit('message', messageData);
-        setInputMessage('');
+    const handleSendMessage = (content: string) => {
+        if (!socket || !currentChannelId || !user) return;
+
+        socket.emit('send_message', {
+            channelId: currentChannelId,
+            content,
+            senderId: user.id
+        });
+    };
+
+    const handleChannelSelect = (channel: Channel) => {
+        setCurrentChannelId(channel.id);
+        setCurrentChannelName(channel.name);
     };
 
     const handleLogout = () => {
@@ -118,130 +139,54 @@ export default function ChatPage() {
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
-            {/* Sidebar */}
-            <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h1 className="text-xl font-bold text-brand-600 dark:text-brand-400">My SecureChat</h1>
-                    <div className="flex items-center mt-2">
+            <ChatSidebar
+                currentUser={user}
+                currentChannelId={currentChannelId}
+                onChannelSelect={handleChannelSelect}
+                onLogout={handleLogout}
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
+
+            <div className="flex-1 flex flex-col h-full w-full relative">
+                {/* Header */}
+                <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shadow-sm z-10">
+                    <div className="flex items-center">
+                        <button
+                            className="md:hidden mr-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            onClick={() => setIsSidebarOpen(true)}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                        </button>
+                        <div className="flex items-center">
+                            <span className="text-2xl text-gray-400 mr-2">#</span>
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                                {currentChannelName || 'Select a channel'}
+                            </h2>
+                        </div>
+                    </div>
+                    <div className="flex items-center">
                         <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
                             {isConnected ? 'Connected' : 'Disconnected'}
                         </span>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
-                    <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Channels</h2>
-                    <div className="space-y-2">
-                        <button className="w-full text-left px-3 py-2 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 rounded-lg font-medium">
-                            # general
-                        </button>
-                        <button className="w-full text-left px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition">
-                            # random
-                        </button>
+                {currentChannelId ? (
+                    <>
+                        <MessageList messages={messages} currentUser={user} />
+                        <ChatInput onSendMessage={handleSendMessage} disabled={!isConnected} />
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-4 text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                        </svg>
+                        <p className="text-lg font-medium">Welcome to My SecureChat</p>
+                        <p className="text-sm mt-2">Select a channel from the sidebar to start chatting.</p>
                     </div>
-                </div>
-
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                            <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-brand-600 dark:text-brand-300 font-bold">
-                                {user.displayName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user.displayName}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate w-24">{user.email}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="text-gray-400 hover:text-red-500 transition"
-                            title="Logout"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col h-full">
-                {/* Chat Header */}
-                <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10">
-                    <div className="flex items-center">
-                        <span className="text-2xl text-gray-400 mr-2">#</span>
-                        <h2 className="text-lg font-bold text-gray-800 dark:text-white">general</h2>
-                    </div>
-                    {user.isDomainAdmin && (
-                        <button
-                            onClick={() => router.push('/admin/settings')}
-                            className="text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition"
-                        >
-                            Admin Settings
-                        </button>
-                    )}
-                </div>
-
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-900">
-                    {messages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <p>No messages yet. Start the conversation!</p>
-                        </div>
-                    ) : (
-                        messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
-                            >
-                                <div className={`max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-2xl px-4 py-3 shadow-sm ${msg.isOwn
-                                        ? 'bg-brand-600 text-white rounded-br-none'
-                                        : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-none border border-gray-100 dark:border-gray-700'
-                                    }`}>
-                                    {!msg.isOwn && (
-                                        <p className="text-xs font-bold text-brand-600 dark:text-brand-400 mb-1">
-                                            {msg.sender}
-                                        </p>
-                                    )}
-                                    <p className="text-sm md:text-base leading-relaxed">{msg.text}</p>
-                                    <p className={`text-[10px] mt-1 text-right ${msg.isOwn ? 'text-brand-100' : 'text-gray-400'
-                                        }`}>
-                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input Area */}
-                <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                    <form onSubmit={handleSendMessage} className="flex gap-4 max-w-4xl mx-auto">
-                        <input
-                            type="text"
-                            value={inputMessage}
-                            onChange={(e) => setInputMessage(e.target.value)}
-                            placeholder="Type a message..."
-                            className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-gray-600 transition dark:text-white"
-                        />
-                        <button
-                            type="submit"
-                            disabled={!inputMessage.trim() || !isConnected}
-                            className="bg-brand-600 text-white px-6 py-3 rounded-xl hover:bg-brand-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-brand-600/20 flex items-center gap-2"
-                        >
-                            <span>Send</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
-                        </button>
-                    </form>
-                </div>
+                )}
             </div>
         </div>
     );
