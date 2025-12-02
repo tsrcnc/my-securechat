@@ -46,7 +46,14 @@ export default function DomainRegisterPage() {
                     }, 2000);
                     return;
                 }
-                throw new Error(data.message || 'Registration failed');
+
+                // Handle Zod validation errors from backend
+                if (data.details && Array.isArray(data.details)) {
+                    const firstError = data.details[0];
+                    throw new Error(firstError.message || data.error || 'Registration failed');
+                }
+
+                throw new Error(data.message || data.error || 'Registration failed');
             }
 
             setSuccess(true);
