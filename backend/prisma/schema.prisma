@@ -167,6 +167,8 @@ model User {
   isDomainAdmin           Boolean                   @default(false)
   isPlatformAdmin         Boolean                   @default(false)
   emailVerified           Boolean                   @default(false)
+  resetToken              String?
+  resetTokenExpiry        DateTime?
   createdAt               DateTime                  @default(now())
   updatedAt               DateTime                  @updatedAt
   AuditLog                AuditLog[]
