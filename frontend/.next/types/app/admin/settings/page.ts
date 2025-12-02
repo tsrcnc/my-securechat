@@ -1,4 +1,4 @@
-// File: D:\gemini\my secure chat\frontend\app\admin\settings\page.tsx
+// File: E:\gemini\sequre chat\frontend\app\admin\settings\page.tsx
 import * as entry from '../../../../../app/admin/settings/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

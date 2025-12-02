@@ -21,6 +21,14 @@ export default function DomainRegisterPage() {
         setError('');
         setLoading(true);
 
+        // Basic domain validation
+        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+        if (!domainRegex.test(formData.domainName)) {
+            setError('Invalid domain format. Please enter a valid domain name (e.g., example.com).');
+            setLoading(false);
+            return;
+        }
+
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/domains/register`, {
                 method: 'POST',
@@ -96,9 +104,21 @@ export default function DomainRegisterPage() {
                                     type="text"
                                     required
                                     placeholder="e.g., acme.com"
-                                    className="appearance-none block w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all"
+                                    className={`appearance-none block w-full px-4 py-3 border rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent sm:text-sm transition-all ${error && error.includes('domain') ? 'border-red-300 focus:ring-red-500' : 'border-slate-200'
+                                        }`}
                                     value={formData.domainName}
-                                    onChange={(e) => setFormData({ ...formData, domainName: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, domainName: e.target.value });
+                                        if (error) setError('');
+                                    }}
+                                    onBlur={() => {
+                                        if (formData.domainName) {
+                                            const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+                                            if (!domainRegex.test(formData.domainName)) {
+                                                setError('Invalid domain format. Please enter a valid domain name (e.g., example.com).');
+                                            }
+                                        }
+                                    }}
                                     suppressHydrationWarning
                                 />
                             </div>
