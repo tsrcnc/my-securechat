@@ -104,14 +104,14 @@ export default function LoginPage() {
 
                 <div className="mt-6 text-center">
                     <p className="text-gray-600 dark:text-gray-400">
-                        Don't have an account?{' '}
+                        New User?{' '}
                         <a href="/register" className="text-blue-600 hover:text-blue-700 font-semibold">
-                            Register
+                            Create Account
                         </a>
                     </p>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
-                        Domain not registered?{' '}
-                        <a href="/register-domain" className="text-blue-600 hover:text-blue-700">
+                        Need a workspace?{' '}
+                        <a href="/domain-register" className="text-blue-600 hover:text-blue-700">
                             Register Domain
                         </a>
                     </p>
