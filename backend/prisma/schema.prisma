@@ -79,10 +79,25 @@ model Domain {
   updatedAt              DateTime           @updatedAt
   Subscription           Subscription[]
   User                   User[]
+  Channel                Channel[]
 
   @@index([domainName])
   @@index([subscriptionStatus])
   @@index([verificationStatus])
+}
+
+model Channel {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  type        ChannelType @default(PUBLIC)
+  domainId    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  Domain      Domain      @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  Messages    Message[]
+
+  @@index([domainId])
 }
 
 model EmailVerification {
@@ -98,7 +113,8 @@ model EmailVerification {
 
 model Message {
   id             String        @id @default(uuid())
-  conversationId String
+  conversationId String?
+  channelId      String?
   senderId       String?
   messageType    MessageType   @default(TEXT)
   content        String?
@@ -109,13 +125,15 @@ model Message {
   isDeleted      Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-  Conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  Conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  Channel        Channel?      @relation(fields: [channelId], references: [id], onDelete: Cascade)
   Message        Message?      @relation("MessageToMessage", fields: [replyToId], references: [id])
   other_Message  Message[]     @relation("MessageToMessage")
   User           User?         @relation(fields: [senderId], references: [id])
   MessageRead    MessageRead[]
 
   @@index([conversationId])
+  @@index([channelId])
   @@index([createdAt])
   @@index([senderId])
 }
@@ -186,6 +204,11 @@ model User {
 enum BillingCycle {
   MONTHLY
   YEARLY
+}
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
 }
 
 enum ConversationType {
