@@ -311,15 +311,53 @@ export default function ChatPage() {
                                         </button>
 
                                         {currentConversationType === 'DIRECT' && (
-                                            <button
-                                                onClick={() => {
-                                                    setIsMenuOpen(false);
-                                                    handleBlockUser();
-                                                }}
-                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                            >
-                                                Block User
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsMenuOpen(false);
+                                                        // Check if already in contacts?
+                                                        // We don't have the contacts list here easily.
+                                                        // But we can just try to add them. The backend will reject if already exists.
+                                                        // Or we can fetch contacts to check.
+                                                        // For MVP, just try to add.
+                                                        if (currentTarget) {
+                                                            // We need the email to add contact.
+                                                            // currentTarget is the Conversation object?
+                                                            // No, handleConversationSelect sets currentTarget to the whole conversation object or channel object.
+                                                            // For DIRECT, it's the conversation object.
+                                                            // We need to find the other user.
+                                                            const otherUser = currentTarget.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
+                                                            if (otherUser && otherUser.email) {
+                                                                // Call add contact API
+                                                                const token = localStorage.getItem('token');
+                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/add`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                    body: JSON.stringify({ email: otherUser.email })
+                                                                })
+                                                                    .then(res => res.json())
+                                                                    .then(data => {
+                                                                        if (data.error) alert(data.error);
+                                                                        else alert('Contact added successfully');
+                                                                    })
+                                                                    .catch(err => console.error(err));
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    Add to Contacts
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setIsMenuOpen(false);
+                                                        handleBlockUser();
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                >
+                                                    Block User
+                                                </button>
+                                            </>
                                         )}
 
                                         <button

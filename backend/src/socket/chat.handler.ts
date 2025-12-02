@@ -25,6 +25,37 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
                 throw new Error('Target (channel or conversation) is required');
             }
 
+            // Resurrection Logic for DIRECT conversations
+            if (conversationId) {
+                const conversation = await prisma.conversation.findUnique({
+                    where: { id: conversationId },
+                    include: { ConversationParticipant: true }
+                });
+
+                if (conversation && conversation.type === 'DIRECT') {
+                    // Check for missing participants (resurrection)
+                    const lastMessage = await prisma.message.findFirst({
+                        where: { conversationId, senderId: { not: senderId } },
+                        select: { senderId: true }
+                    });
+
+                    if (lastMessage) {
+                        const missingUserId = lastMessage.senderId;
+                        const isParticipant = conversation.ConversationParticipant.some(p => p.userId === missingUserId);
+                        if (!isParticipant) {
+                            // Resurrect them!
+                            await prisma.conversationParticipant.create({
+                                data: {
+                                    conversationId,
+                                    userId: missingUserId,
+                                    role: 'MEMBER'
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
             // Save to DB
             const message = await prisma.message.create({
                 data: {
@@ -66,8 +97,7 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
                 data: { status: 'DELIVERED' }
             });
 
-            // Notify sender (we need to find the sender, or just broadcast to the room and let client filter)
-            // Better: Broadcast to the conversation room.
+            // Notify sender
             const message = await prisma.message.findUnique({ where: { id: messageId } });
             if (message && message.conversationId) {
                 io.to(message.conversationId).emit('message_status_update', { messageId, status: 'DELIVERED' });

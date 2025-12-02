@@ -12,9 +12,106 @@ router.post('/create', authenticateToken, async (req, res) => {
         const userId = (req as any).user.userId;
 
         if (type === 'DIRECT') {
-            // Simple check: Create new DM
-            // In production, we should check if one exists.
-            // For this MVP, we'll create a new one or return if we can find it easily.
+            // Check if conversation already exists
+            const existingConversation = await prisma.conversation.findFirst({
+                where: {
+                    type: 'DIRECT',
+                    AND: [
+                        { ConversationParticipant: { some: { userId } } },
+                        { ConversationParticipant: { some: { userId: participantId } } }
+                    ]
+                },
+                include: {
+                    ConversationParticipant: {
+                        include: {
+                            User: {
+                                select: { id: true, displayName: true, avatarUrl: true, email: true }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (existingConversation) {
+                return res.json(existingConversation);
+            }
+
+            // Check if a conversation exists where the OTHER user is a participant, but I am not (deleted case)
+            // This is a bit complex with Prisma. Let's try to find any DIRECT conversation with the other user
+            // and see if I was previously part of it or just re-create.
+            // Actually, if I deleted it, I am removed from participants.
+            // So we need to find a conversation where the OTHER user is a participant, and it is a DIRECT chat,
+            // and check if it *was* with me. But we don't store "past participants".
+            // So, if I deleted it, for all intents and purposes, it's gone for me.
+            // But if the OTHER user sends a message, they will use the OLD conversation ID.
+            // If I start a NEW chat, I should probably check if there is an existing conversation that the OTHER user has
+            // which effectively is a DM with me.
+            // Since we don't have a unique constraint on DMs yet, we might have multiple DMs.
+            // Let's enforce: Try to find a conversation where participantId is a member, and it's DIRECT.
+            // Then check if I am *not* a member.
+            // But how do we know it was with ME?
+            // We need to look at the messages or we need to never fully delete the participant row, just mark as "deleted".
+            // OR, we just create a new one.
+
+            // BETTER APPROACH for "Resurrection" when receiving a message:
+            // The sender uses `socket.emit('send_message')`. The socket handler should check if recipient is part of conversation.
+            // If not, re-add them.
+
+            // For this `create` endpoint (Starting a chat from UI):
+            // If I try to start a chat with someone I deleted, I should just create a new one OR find the one they might still have active.
+            // Finding the one they have active is hard without a "participants" history.
+
+            // Let's try to find ANY Direct conversation where the other user is a participant.
+            // And then check if that conversation *would* be with me.
+            // Since we don't store "intended participants" on the Conversation model, only in the join table,
+            // if I leave, there is no record I was there.
+
+            // FIX: When "deleting" a chat, don't remove the participant row. Add a `deletedAt` or `hidden` flag.
+            // But I don't have that column yet.
+            // Alternative: When creating, check if there is a conversation with the other user that has ONLY 1 participant (them).
+            // This implies the other person (me) left.
+
+            const potentialResurrection = await prisma.conversation.findFirst({
+                where: {
+                    type: 'DIRECT',
+                    ConversationParticipant: {
+                        some: { userId: participantId }
+                    }
+                },
+                include: {
+                    ConversationParticipant: true
+                }
+            });
+
+            // If we found one where they are the ONLY participant (or maybe I am not in it)
+            if (potentialResurrection) {
+                const amIParticipant = potentialResurrection.ConversationParticipant.some(p => p.userId === userId);
+                if (!amIParticipant && potentialResurrection.ConversationParticipant.length === 1) {
+                    // Resurrect! Re-add me.
+                    await prisma.conversationParticipant.create({
+                        data: {
+                            conversationId: potentialResurrection.id,
+                            userId,
+                            role: 'MEMBER'
+                        }
+                    });
+
+                    // Return updated conversation
+                    const updated = await prisma.conversation.findUnique({
+                        where: { id: potentialResurrection.id },
+                        include: {
+                            ConversationParticipant: {
+                                include: {
+                                    User: {
+                                        select: { id: true, displayName: true, avatarUrl: true, email: true }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    return res.json(updated);
+                }
+            }
 
             const conversation = await prisma.conversation.create({
                 data: {

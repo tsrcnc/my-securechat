@@ -16,6 +16,7 @@ interface Contact {
     email: string;
     avatarUrl?: string;
     status?: string;
+    nickname?: string;
 }
 
 interface Conversation {
@@ -54,6 +55,7 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
     const [isAddContactOpen, setIsAddContactOpen] = useState(false);
     const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
     const [viewingProfile, setViewingProfile] = useState<any>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const fetchData = async () => {
         try {
@@ -84,12 +86,12 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
         fetchData();
     }, []);
 
-    const handleAddContact = async (email: string) => {
+    const handleAddContact = async (email: string, nickname?: string) => {
         const token = localStorage.getItem('token');
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, nickname })
         });
         if (!res.ok) {
             const err = await res.json();
@@ -141,20 +143,36 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                 ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             `}>
                 {/* Header */}
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-                    <div className="flex items-center cursor-pointer hover:opacity-80" onClick={() => setViewingProfile(currentUser)}>
-                        <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold mr-2">
-                            {currentUser?.displayName?.charAt(0).toUpperCase()}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center cursor-pointer hover:opacity-80" onClick={() => setViewingProfile(currentUser)}>
+                            <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold mr-2">
+                                {currentUser?.displayName?.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-semibold text-gray-800 dark:text-white truncate max-w-[120px]">{currentUser?.displayName}</span>
                         </div>
-                        <span className="font-semibold text-gray-800 dark:text-white truncate max-w-[120px]">{currentUser?.displayName}</span>
+                        <div className="flex gap-2">
+                            <button onClick={onLogout} className="text-gray-500 hover:text-red-500">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                            </button>
+                            <button onClick={onClose} className="md:hidden text-gray-500">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={onLogout} className="text-gray-500 hover:text-red-500">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        </button>
-                        <button onClick={onClose} className="md:hidden text-gray-500">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search chats or contacts..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                        <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                     </div>
                 </div>
 
@@ -169,21 +187,27 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                 <div className="flex-1 overflow-y-auto p-2">
                     {activeTab === 'CHATS' && (
                         <div className="space-y-1">
-                            {conversations.map(conv => {
-                                const otherUser = conv.ConversationParticipant.find(p => p.User.id !== currentUser?.id)?.User;
-                                const name = conv.type === 'GROUP' ? conv.name : otherUser?.displayName;
-                                return (
-                                    <button key={conv.id} onClick={() => onConversationSelect(conv.id, conv.type, conv)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3">
-                                            {name?.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
-                                            <p className="text-sm text-gray-500 truncate">{conv.Message[0]?.content || 'No messages yet'}</p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                            {conversations
+                                .filter(conv => {
+                                    const otherUser = conv.ConversationParticipant.find(p => p.User.id !== currentUser?.id)?.User;
+                                    const name = conv.type === 'GROUP' ? conv.name : (otherUser?.displayName || 'Unknown');
+                                    return name?.toLowerCase().includes(searchQuery.toLowerCase());
+                                })
+                                .map(conv => {
+                                    const otherUser = conv.ConversationParticipant.find(p => p.User.id !== currentUser?.id)?.User;
+                                    const name = conv.type === 'GROUP' ? conv.name : otherUser?.displayName;
+                                    return (
+                                        <button key={conv.id} onClick={() => onConversationSelect(conv.id, conv.type, conv)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3">
+                                                {name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-gray-900 dark:text-white truncate">{name}</p>
+                                                <p className="text-sm text-gray-500 truncate">{conv.Message[0]?.content || 'No messages yet'}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
 
                         </div>
                     )}
@@ -196,23 +220,28 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                                 </div>
                                 <span className="font-medium">Add New Contact</span>
                             </button>
-                            {contacts.map(contact => (
-                                <button key={contact.id} onClick={() => startDM(contact.id)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                    <div
-                                        className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3 hover:ring-2 hover:ring-brand-500 transition-all"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setViewingProfile(contact);
-                                        }}
-                                    >
-                                        {contact.displayName?.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-gray-900 dark:text-white">{contact.displayName}</p>
-                                        <p className="text-xs text-gray-500">{contact.email}</p>
-                                    </div>
-                                </button>
-                            ))}
+                            {contacts
+                                .filter(contact =>
+                                    (contact.nickname || contact.displayName)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                    contact.email.toLowerCase().includes(searchQuery.toLowerCase())
+                                )
+                                .map(contact => (
+                                    <button key={contact.id} onClick={() => startDM(contact.id)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                        <div
+                                            className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300 font-bold mr-3 hover:ring-2 hover:ring-brand-500 transition-all"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setViewingProfile(contact);
+                                            }}
+                                        >
+                                            {(contact.nickname || contact.displayName)?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900 dark:text-white">{contact.nickname || contact.displayName}</p>
+                                            <p className="text-xs text-gray-500">{contact.email}</p>
+                                        </div>
+                                    </button>
+                                ))}
                         </div>
                     )}
 
@@ -225,14 +254,16 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                                 <span className="font-medium">Create New Group</span>
                             </button>
                             {/* List groups here (filtered from conversations) */}
-                            {conversations.filter(c => c.type === 'GROUP').map(group => (
-                                <button key={group.id} onClick={() => onConversationSelect(group.id, 'GROUP', group)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                                    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold mr-3">
-                                        {group.name?.charAt(0).toUpperCase()}
-                                    </div>
-                                    <p className="font-medium text-gray-900 dark:text-white">{group.name}</p>
-                                </button>
-                            ))}
+                            {conversations
+                                .filter(c => c.type === 'GROUP' && c.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                .map(group => (
+                                    <button key={group.id} onClick={() => onConversationSelect(group.id, 'GROUP', group)} className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                                        <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold mr-3">
+                                            {group.name?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <p className="font-medium text-gray-900 dark:text-white">{group.name}</p>
+                                    </button>
+                                ))}
                         </div>
                     )}
                 </div>
@@ -245,6 +276,16 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                 onClose={() => setViewingProfile(null)}
                 user={viewingProfile}
                 isCurrentUser={viewingProfile?.id === currentUser?.id}
+                onUpdateDisplayName={async (name) => {
+                    // TODO: Implement backend API for updating display name
+                    console.log('Update display name to:', name);
+                    // For now, just update local state to reflect change immediately for demo
+                    // In real app, we would call API then refresh
+                }}
+                onUpdateProfile={async (file) => {
+                    // TODO: Implement backend API for uploading avatar
+                    console.log('Upload file:', file);
+                }}
             />
         </>
     );

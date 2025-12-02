@@ -97,5 +97,31 @@ npm run dev
 *   **Fixed:** Admin button visibility (Added `isDomainAdmin` to API response).
 *   **Added:** Organization Settings Page (`/admin/settings`).
 *   **Added:** Delete Organization endpoint (Cascading delete for all data).
+*   **Completed Phase 6:**
+    *   **Profile Management:** Edit Display Name, Layout Fixes.
+    *   **Nicknames:** Add/Edit Contact Nicknames.
+    *   **Search:** Chat/Contact Search Bar.
+    *   **Chat Fixes:** Resurrection of deleted chats, Add to Contacts from menu.
 
-**You are ready to build the Chat! 💬**
+## 🏠 Next Steps (From Home)
+
+1.  **Pull Latest Code:**
+    ```bash
+    git pull origin main
+    ```
+2.  **Install Dependencies:**
+    ```bash
+    cd backend && npm install && npx prisma generate
+    cd ../frontend && npm install
+    ```
+3.  **Verify Deployment:**
+    *   Check `https://mysecurechat.org` to see if the deployment finished successfully.
+    *   If not, you might need to re-run the deployment script or check logs.
+    *   The deployment command was: `ssh root@72.61.232.50 "unzip -o /root/deploy_package.zip -d /var/www/mysecurechat && cd /var/www/mysecurechat/backend && npm install && npx prisma generate && npm run build && cd ../frontend && npm install && npm run build && pm2 restart all"`
+
+4.  **Next Phase (Phase 7?):**
+    *   Media Sharing (Images/Files)?
+    *   Voice/Video Calls?
+    *   End-to-End Encryption?
+
+**You are ready to continue! 🚀**

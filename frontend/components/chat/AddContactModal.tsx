@@ -3,11 +3,12 @@ import { useState } from 'react';
 interface AddContactModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAddContact: (email: string) => Promise<void>;
+    onAddContact: (email: string, nickname?: string) => Promise<void>;
 }
 
 export default function AddContactModal({ isOpen, onClose, onAddContact }: AddContactModalProps) {
     const [email, setEmail] = useState('');
+    const [nickname, setNickname] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -18,8 +19,9 @@ export default function AddContactModal({ isOpen, onClose, onAddContact }: AddCo
         setIsLoading(true);
         setError('');
         try {
-            await onAddContact(email);
+            await onAddContact(email, nickname);
             setEmail('');
+            setNickname('');
             onClose();
         } catch (err: any) {
             setError(err.message || 'Failed to add contact');
@@ -44,6 +46,18 @@ export default function AddContactModal({ isOpen, onClose, onAddContact }: AddCo
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-white"
                             placeholder="user@example.com"
                             required
+                        />
+                    </div>
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Nickname (Optional)
+                        </label>
+                        <input
+                            type="text"
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-white"
+                            placeholder="Enter a nickname"
                         />
                     </div>
                     {error && <p className="text-red-500 text-sm mb-4">{error}</p>}

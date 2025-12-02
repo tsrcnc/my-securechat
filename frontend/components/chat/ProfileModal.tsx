@@ -11,10 +11,19 @@ interface ProfileModalProps {
     } | null;
     isCurrentUser?: boolean;
     onUpdateProfile?: (file: File) => Promise<void>;
+    onUpdateDisplayName?: (name: string) => Promise<void>;
 }
 
-export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onUpdateProfile }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onUpdateProfile, onUpdateDisplayName }: ProfileModalProps) {
     const [uploading, setUploading] = useState(false);
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newName, setNewName] = useState('');
+
+    useEffect(() => {
+        if (user) {
+            setNewName(user.displayName);
+        }
+    }, [user]);
 
     if (!isOpen || !user) return null;
 
@@ -31,17 +40,24 @@ export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onU
         }
     };
 
+    const handleSaveName = async () => {
+        if (onUpdateDisplayName && newName.trim() !== '') {
+            await onUpdateDisplayName(newName);
+            setIsEditingName(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all">
                 <div className="relative h-32 bg-gradient-to-r from-blue-500 to-purple-600">
-                    <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-gray-200">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <button onClick={onClose} className="absolute top-4 right-4 text-white hover:text-gray-200 bg-black bg-opacity-20 rounded-full p-1">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <div className="relative px-6 pb-6">
+                <div className="relative px-6 pb-6 pt-16">
                     <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
-                        <div className="relative w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 overflow-hidden bg-gray-200 flex items-center justify-center">
+                        <div className="relative w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 overflow-hidden bg-gray-200 flex items-center justify-center shadow-lg">
                             {user.avatarUrl ? (
                                 <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
                             ) : (
@@ -57,8 +73,33 @@ export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onU
                         </div>
                     </div>
 
-                    <div className="mt-20 text-center">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.displayName}</h2>
+                    <div className="text-center mt-4">
+                        {isCurrentUser && isEditingName ? (
+                            <div className="flex items-center justify-center space-x-2 mb-2">
+                                <input
+                                    type="text"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-center bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button onClick={handleSaveName} className="text-green-500 hover:text-green-600">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => setIsEditingName(false)} className="text-red-500 hover:text-red-600">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center space-x-2">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.displayName}</h2>
+                                {isCurrentUser && (
+                                    <button onClick={() => setIsEditingName(true)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         <p className="text-gray-500 dark:text-gray-400 mt-1">{user.email}</p>
 
                         {isCurrentUser && uploading && (

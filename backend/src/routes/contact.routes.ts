@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Add contact by email
 router.post('/add', authenticateToken, async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, nickname } = req.body;
         const userId = (req as any).user.userId;
 
         if (!email) {
@@ -47,7 +47,7 @@ router.post('/add', authenticateToken, async (req, res) => {
             data: {
                 userId,
                 contactId: contactUser.id,
-                nickname: contactUser.displayName
+                nickname: nickname || contactUser.displayName
             },
             include: {
                 Contact: {
