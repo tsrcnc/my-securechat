@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface DomainInfo {
@@ -23,6 +23,18 @@ interface VerificationInstructions {
 }
 
 export default function DomainVerifyPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand-600"></div>
+            </div>
+        }>
+            <DomainVerifyContent />
+        </Suspense>
+    );
+}
+
+function DomainVerifyContent() {
     const searchParams = useSearchParams();
     const domainName = searchParams.get('domain');
 
@@ -142,8 +154,8 @@ export default function DomainVerifyPage() {
                             </p>
                         </div>
                         <div className={`px-6 py-2 rounded-full text-sm font-bold tracking-wide uppercase border ${domainInfo?.verificationStatus === 'VERIFIED'
-                                ? 'bg-green-50 text-green-700 border-green-200'
-                                : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : 'bg-yellow-50 text-yellow-700 border-yellow-200'
                             }`}>
                             {domainInfo?.verificationStatus}
                         </div>
@@ -232,8 +244,8 @@ export default function DomainVerifyPage() {
                                         onClick={handleVerify}
                                         disabled={verifying}
                                         className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl shadow-brand-700/20 transition-all transform hover:-translate-y-1 ${verifying
-                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                : 'bg-brand-700 text-white hover:bg-brand-800'
+                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                            : 'bg-brand-700 text-white hover:bg-brand-800'
                                             }`}
                                     >
                                         {verifying ? 'Verifying...' : 'Verify Domain Now ✨'}
@@ -241,8 +253,8 @@ export default function DomainVerifyPage() {
 
                                     {verificationResult && (
                                         <div className={`mt-6 p-4 rounded-xl text-sm border ${verificationResult.success
-                                                ? 'bg-green-50 text-green-700 border-green-200'
-                                                : 'bg-red-50 text-red-700 border-red-200'
+                                            ? 'bg-green-50 text-green-700 border-green-200'
+                                            : 'bg-red-50 text-red-700 border-red-200'
                                             }`}>
                                             <p className="font-bold mb-1">
                                                 {verificationResult.success ? 'Success!' : 'Verification Failed'}
