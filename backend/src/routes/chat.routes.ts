@@ -71,11 +71,17 @@ router.post('/create', authenticateToken, async (req, res) => {
             // Alternative: When creating, check if there is a conversation with the other user that has ONLY 1 participant (them).
             // This implies the other person (me) left.
 
+            // Improved Resurrection Logic:
+            // Find a conversation where the other user is a participant, I am NOT a participant,
+            // AND I have sent a message in it previously. This confirms it was a chat with me.
             const potentialResurrection = await prisma.conversation.findFirst({
                 where: {
                     type: 'DIRECT',
                     ConversationParticipant: {
                         some: { userId: participantId }
+                    },
+                    Message: {
+                        some: { userId: userId } // I sent a message
                     }
                 },
                 include: {
@@ -83,10 +89,10 @@ router.post('/create', authenticateToken, async (req, res) => {
                 }
             });
 
-            // If we found one where they are the ONLY participant (or maybe I am not in it)
+            // If found, and I am not currently a participant (double check)
             if (potentialResurrection) {
                 const amIParticipant = potentialResurrection.ConversationParticipant.some(p => p.userId === userId);
-                if (!amIParticipant && potentialResurrection.ConversationParticipant.length === 1) {
+                if (!amIParticipant) {
                     // Resurrect! Re-add me.
                     await prisma.conversationParticipant.create({
                         data: {

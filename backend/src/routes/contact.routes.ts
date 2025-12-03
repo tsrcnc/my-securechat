@@ -101,4 +101,36 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+// Update contact nickname
+router.put('/update', authenticateToken, async (req, res) => {
+    try {
+        const { contactId, nickname } = req.body;
+        const userId = (req as any).user.userId;
+
+        if (!contactId) {
+            return res.status(400).json({ error: 'Contact ID is required' });
+        }
+
+        // Update contact
+        const contact = await prisma.contact.updateMany({
+            where: {
+                userId: userId,
+                contactId: contactId
+            },
+            data: {
+                nickname: nickname
+            }
+        });
+
+        if (contact.count === 0) {
+            return res.status(404).json({ error: 'Contact not found' });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating contact:', error);
+        res.status(500).json({ error: 'Failed to update contact' });
+    }
+});
+
 export default router;

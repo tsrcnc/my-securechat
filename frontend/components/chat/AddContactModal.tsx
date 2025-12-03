@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface AddContactModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAddContact: (email: string, nickname?: string) => Promise<void>;
+    initialEmail?: string;
 }
 
-export default function AddContactModal({ isOpen, onClose, onAddContact }: AddContactModalProps) {
-    const [email, setEmail] = useState('');
+export default function AddContactModal({ isOpen, onClose, onAddContact, initialEmail }: AddContactModalProps) {
+    const [email, setEmail] = useState(initialEmail || '');
     const [nickname, setNickname] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setEmail(initialEmail || '');
+            setNickname('');
+        }
+    }, [isOpen, initialEmail]);
 
     if (!isOpen) return null;
 

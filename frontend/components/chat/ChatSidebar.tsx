@@ -70,7 +70,10 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
             const resContacts = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts`, { headers });
             if (resContacts.ok) {
                 const data = await resContacts.json();
-                setContacts(data.map((c: any) => c.Contact));
+                setContacts(data.map((c: any) => ({
+                    ...c.Contact,
+                    nickname: c.nickname
+                })));
             }
 
             // Fetch Conversations
@@ -130,6 +133,37 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
         }
     };
 
+    const [addContactInitialEmail, setAddContactInitialEmail] = useState('');
+
+    const handleUpdateNickname = async (contactId: string, nickname: string) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/update`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ contactId, nickname })
+            });
+
+            if (res.ok) {
+                fetchData();
+            } else {
+                console.error('Failed to update nickname');
+            }
+        } catch (error) {
+            console.error('Error updating nickname:', error);
+        }
+    };
+
+    const handleAddContactFromProfile = () => {
+        if (viewingProfile?.email) {
+            setAddContactInitialEmail(viewingProfile.email);
+            setIsAddContactOpen(true);
+            setViewingProfile(null);
+        }
+    };
+
+    const isViewingContact = contacts.some(c => c.id === viewingProfile?.id);
+
     return (
         <>
             {/* Mobile Overlay */}
@@ -152,6 +186,11 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                             <span className="font-semibold text-gray-800 dark:text-white truncate max-w-[120px]">{currentUser?.displayName}</span>
                         </div>
                         <div className="flex gap-2">
+                            {currentUser?.isDomainAdmin && (
+                                <button onClick={() => window.location.href = '/admin'} className="text-gray-500 hover:text-blue-500" title="Manage Organization">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                </button>
+                            )}
                             <button onClick={onLogout} className="text-gray-500 hover:text-red-500">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                             </button>
@@ -269,18 +308,27 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                 </div>
             </div>
 
-            <AddContactModal isOpen={isAddContactOpen} onClose={() => setIsAddContactOpen(false)} onAddContact={handleAddContact} />
+            <AddContactModal
+                isOpen={isAddContactOpen}
+                onClose={() => { setIsAddContactOpen(false); setAddContactInitialEmail(''); }}
+                onAddContact={handleAddContact}
+                initialEmail={addContactInitialEmail}
+            />
             <CreateGroupModal isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} contacts={contacts} onCreateGroup={handleCreateGroup} />
             <ProfileModal
                 isOpen={!!viewingProfile}
                 onClose={() => setViewingProfile(null)}
                 user={viewingProfile}
                 isCurrentUser={viewingProfile?.id === currentUser?.id}
+                isContact={isViewingContact}
+                onAddContact={handleAddContactFromProfile}
                 onUpdateDisplayName={async (name) => {
-                    // TODO: Implement backend API for updating display name
-                    console.log('Update display name to:', name);
-                    // For now, just update local state to reflect change immediately for demo
-                    // In real app, we would call API then refresh
+                    if (viewingProfile?.id === currentUser?.id) {
+                        // TODO: Implement backend API for updating display name
+                        console.log('Update display name to:', name);
+                    } else if (isViewingContact) {
+                        await handleUpdateNickname(viewingProfile.id, name);
+                    }
                 }}
                 onUpdateProfile={async (file) => {
                     // TODO: Implement backend API for uploading avatar

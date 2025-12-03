@@ -39,7 +39,7 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
                         select: { senderId: true }
                     });
 
-                    if (lastMessage) {
+                    if (lastMessage && lastMessage.senderId) {
                         const missingUserId = lastMessage.senderId;
                         const isParticipant = conversation.ConversationParticipant.some(p => p.userId === missingUserId);
                         if (!isParticipant) {
@@ -47,7 +47,7 @@ export const setupChatHandlers = (io: Server, socket: Socket) => {
                             await prisma.conversationParticipant.create({
                                 data: {
                                     conversationId,
-                                    userId: missingUserId,
+                                    userId: missingUserId!,
                                     role: 'MEMBER'
                                 }
                             });

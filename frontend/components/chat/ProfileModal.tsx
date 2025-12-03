@@ -8,13 +8,16 @@ interface ProfileModalProps {
         displayName: string;
         email: string;
         avatarUrl?: string;
+        nickname?: string;
     } | null;
     isCurrentUser?: boolean;
+    isContact?: boolean;
+    onAddContact?: () => void;
     onUpdateProfile?: (file: File) => Promise<void>;
     onUpdateDisplayName?: (name: string) => Promise<void>;
 }
 
-export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onUpdateProfile, onUpdateDisplayName }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, isContact, onAddContact, onUpdateProfile, onUpdateDisplayName }: ProfileModalProps) {
     const [uploading, setUploading] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState('');
@@ -89,11 +92,32 @@ export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onU
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
+                        ) : !isCurrentUser && isContact && isEditingName ? (
+                            <div className="flex items-center justify-center space-x-2 mb-2">
+                                <input
+                                    type="text"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                    placeholder="Enter nickname"
+                                    className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-center bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <button onClick={handleSaveName} className="text-green-500 hover:text-green-600">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                                <button onClick={() => setIsEditingName(false)} className="text-red-500 hover:text-red-600">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
                         ) : (
                             <div className="flex items-center justify-center space-x-2">
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.displayName}</h2>
-                                {isCurrentUser && (
-                                    <button onClick={() => setIsEditingName(true)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {(!isCurrentUser && user.nickname) ? user.nickname : user.displayName}
+                                </h2>
+                                {(isCurrentUser || isContact) && (
+                                    <button onClick={() => {
+                                        setNewName((!isCurrentUser && user.nickname) ? user.nickname || '' : user.displayName);
+                                        setIsEditingName(true);
+                                    }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>
                                 )}
@@ -112,6 +136,11 @@ export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, onU
                             <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition font-medium">
                                 Message
                             </button>
+                            {!isContact && onAddContact && (
+                                <button onClick={onAddContact} className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition font-medium">
+                                    Add Contact
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
