@@ -81,7 +81,7 @@ router.post('/create', authenticateToken, async (req, res) => {
                         some: { userId: participantId }
                     },
                     Message: {
-                        some: { userId: userId } // I sent a message
+                        some: { senderId: userId } // I sent a message
                     }
                 },
                 include: {
