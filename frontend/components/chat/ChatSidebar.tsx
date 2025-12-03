@@ -334,6 +334,11 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
                     // TODO: Implement backend API for uploading avatar
                     console.log('Upload file:', file);
                 }}
+                onMessage={() => {
+                    if (viewingProfile?.id) {
+                        startDM(viewingProfile.id);
+                    }
+                }}
             />
         </>
     );

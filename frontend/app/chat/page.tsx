@@ -36,18 +36,42 @@ export default function ChatPage() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [viewingProfile, setViewingProfile] = useState<any>(null);
+    const [contacts, setContacts] = useState<any[]>([]);
 
-    // Auth check
+    // Auth check and fetch user/contacts
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) {
             router.push('/login');
             return;
         }
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
+
+        // Fetch user profile
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch user');
+                return res.json();
+            })
+            .then(data => setUser(data))
+            .catch(() => router.push('/login'));
+
+        // Fetch contacts
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts`, {
+            headers: { Authorization: `Bearer ${token}` }
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setContacts(data.map((c: any) => ({
+                        ...c.Contact,
+                        nickname: c.nickname
+                    })));
+                }
+            })
+            .catch(err => console.error('Failed to fetch contacts', err));
+
     }, [router]);
 
     // Socket connection
@@ -87,23 +111,7 @@ export default function ChatPage() {
         return () => {
             newSocket.disconnect();
         };
-    }, [user, currentConversationId, currentConversationType]); // Re-bind listener if current chat changes? No, better to use ref or functional update logic.
-    // Actually, functional update in setMessages handles 'prev', but accessing 'currentConversationId' inside callback requires it to be in dependency or use functional update with closure check.
-    // The issue is 'receive_message' listener is bound once. If 'currentConversationId' changes, the closure might be stale if not re-bound.
-    // Adding dependencies to useEffect re-creates socket connection which is bad.
-    // Better solution: Use a ref for currentConversationId.
-
-    const currentChatIdRef = useRef(currentConversationId);
-    const currentChatTypeRef = useRef(currentConversationType);
-
-    useEffect(() => {
-        currentChatIdRef.current = currentConversationId;
-        currentChatTypeRef.current = currentConversationType;
-    }, [currentConversationId, currentConversationType]);
-
-    // Re-implement socket effect to use refs inside callback
-    // ... (Skipping full re-write of socket effect for brevity, assuming simple re-bind is okay for now or just accepting the dependency issue. 
-    // Actually, let's fix it properly by moving the listener setup to a separate effect that depends on socket but uses refs)
+    }, [user, currentConversationId, currentConversationType]);
 
     // Join room and fetch history
     useEffect(() => {
@@ -291,18 +299,11 @@ export default function ChatPage() {
                                         <button
                                             onClick={() => {
                                                 setIsMenuOpen(false);
-                                                // Find the user object to show profile
-                                                // For DM, it's the other participant. For Group, maybe show group info?
-                                                // MVP: Just show profile for DM.
                                                 if (currentConversationType === 'DIRECT') {
-                                                    // We need to find the other user object. 
-                                                    // We don't have the full conversation object here easily unless we store it.
-                                                    // But we have the name. 
-                                                    // Let's rely on fetching it or just passing what we have.
-                                                    // Actually, we can fetch the conversation details or store them in state.
-                                                    // For now, let's just show a "Not implemented for groups" or similar if group.
-                                                    // Wait, I can pass the target object from handleConversationSelect to state!
-                                                    setViewingProfile(currentTarget);
+                                                    const otherUser = currentTarget.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
+                                                    if (otherUser) {
+                                                        setViewingProfile(otherUser);
+                                                    }
                                                 }
                                             }}
                                             className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -315,38 +316,50 @@ export default function ChatPage() {
                                                 <button
                                                     onClick={() => {
                                                         setIsMenuOpen(false);
-                                                        // Check if already in contacts?
-                                                        // We don't have the contacts list here easily.
-                                                        // But we can just try to add them. The backend will reject if already exists.
-                                                        // Or we can fetch contacts to check.
-                                                        // For MVP, just try to add.
                                                         if (currentTarget) {
-                                                            // We need the email to add contact.
-                                                            // currentTarget is the Conversation object?
-                                                            // No, handleConversationSelect sets currentTarget to the whole conversation object or channel object.
-                                                            // For DIRECT, it's the conversation object.
-                                                            // We need to find the other user.
                                                             const otherUser = currentTarget.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
-                                                            if (otherUser && otherUser.email) {
-                                                                // Call add contact API
-                                                                const token = localStorage.getItem('token');
-                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/add`, {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                                                    body: JSON.stringify({ email: otherUser.email })
-                                                                })
-                                                                    .then(res => res.json())
-                                                                    .then(data => {
-                                                                        if (data.error) alert(data.error);
-                                                                        else alert('Contact added successfully');
+                                                            if (otherUser) {
+                                                                const isContact = contacts.some(c => c.id === otherUser.id);
+                                                                if (!isContact) {
+                                                                    const token = localStorage.getItem('token');
+                                                                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts/add`, {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                                                        body: JSON.stringify({ email: otherUser.email })
                                                                     })
-                                                                    .catch(err => console.error(err));
+                                                                        .then(res => res.json())
+                                                                        .then(data => {
+                                                                            if (data.error) alert(data.error);
+                                                                            else {
+                                                                                alert('Contact added successfully');
+                                                                                fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/contacts`, {
+                                                                                    headers: { Authorization: `Bearer ${token}` }
+                                                                                })
+                                                                                    .then(res => res.json())
+                                                                                    .then(data => {
+                                                                                        if (Array.isArray(data)) {
+                                                                                            setContacts(data.map((c: any) => ({
+                                                                                                ...c.Contact,
+                                                                                                nickname: c.nickname
+                                                                                            })));
+                                                                                        }
+                                                                                    });
+                                                                            }
+                                                                        })
+                                                                        .catch(err => console.error(err));
+                                                                } else {
+                                                                    setViewingProfile(otherUser);
+                                                                }
                                                             }
                                                         }
                                                     }}
                                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                                                 >
-                                                    Add to Contacts
+                                                    {(() => {
+                                                        const otherUser = currentTarget?.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
+                                                        const isContact = otherUser && contacts.some(c => c.id === otherUser.id);
+                                                        return isContact ? 'Edit Contact' : 'Add to Contacts';
+                                                    })()}
                                                 </button>
                                                 <button
                                                     onClick={() => {
@@ -408,6 +421,8 @@ export default function ChatPage() {
                 isOpen={!!viewingProfile}
                 onClose={() => setViewingProfile(null)}
                 user={viewingProfile}
+                isContact={viewingProfile && contacts.some(c => c.id === viewingProfile.id)}
+                onMessage={() => setViewingProfile(null)}
             />
         </div>
     );

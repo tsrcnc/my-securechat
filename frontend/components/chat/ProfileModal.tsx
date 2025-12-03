@@ -15,9 +15,10 @@ interface ProfileModalProps {
     onAddContact?: () => void;
     onUpdateProfile?: (file: File) => Promise<void>;
     onUpdateDisplayName?: (name: string) => Promise<void>;
+    onMessage?: () => void;
 }
 
-export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, isContact, onAddContact, onUpdateProfile, onUpdateDisplayName }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, isContact, onAddContact, onUpdateProfile, onUpdateDisplayName, onMessage }: ProfileModalProps) {
     const [uploading, setUploading] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
     const [newName, setNewName] = useState('');
@@ -133,7 +134,7 @@ export default function ProfileModal({ isOpen, onClose, user, isCurrentUser, isC
 
                     {!isCurrentUser && (
                         <div className="mt-8 flex justify-center space-x-4">
-                            <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition font-medium">
+                            <button onClick={onMessage} className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition font-medium">
                                 Message
                             </button>
                             {!isContact && onAddContact && (
