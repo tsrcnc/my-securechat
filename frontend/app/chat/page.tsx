@@ -251,7 +251,7 @@ export default function ChatPage() {
 
     return (
         <div className="flex h-[100dvh] bg-gray-100 dark:bg-gray-900 overflow-hidden">
-            <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block w-full md:w-80 h-full`}>
+            <div className={`${isSidebarOpen ? 'flex' : 'hidden'} md:flex w-full md:w-80 h-full flex-col`}>
                 <ChatSidebar
                     currentUser={user}
                     currentChannelId={currentConversationId}
@@ -270,7 +270,10 @@ export default function ChatPage() {
                     <div className="flex items-center">
                         <button
                             className="md:hidden mr-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                            onClick={() => setIsSidebarOpen(true)}
+                            onClick={() => {
+                                setIsSidebarOpen(true);
+                                setCurrentConversationId(''); // Optional: Clear selection to ensure state reset
+                            }}
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         </button>
@@ -407,7 +410,14 @@ export default function ChatPage() {
                 {currentConversationId ? (
                     <>
                         <MessageList messages={messages} currentUser={user} />
-                        <ChatInput onSendMessage={handleSendMessage} disabled={!isConnected} />
+                        <div className="shrink-0" onFocus={(e) => {
+                            // Small delay to allow keyboard to open
+                            setTimeout(() => {
+                                e.target.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                            }, 300);
+                        }}>
+                            <ChatInput onSendMessage={handleSendMessage} disabled={!isConnected} />
+                        </div>
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-4 text-center">
