@@ -29,6 +29,16 @@ export default function ChatPage() {
 
     const [currentConversationId, setCurrentConversationId] = useState<string>('');
     const [currentConversationType, setCurrentConversationType] = useState<'DIRECT' | 'GROUP' | 'CHANNEL' | ''>('');
+
+    // Refs for socket stability
+    const currentConversationIdRef = useRef(currentConversationId);
+    const currentConversationTypeRef = useRef(currentConversationType);
+
+    useEffect(() => {
+        currentConversationIdRef.current = currentConversationId;
+        currentConversationTypeRef.current = currentConversationType;
+    }, [currentConversationId, currentConversationType]);
+
     const [currentChatName, setCurrentChatName] = useState<string>('');
     const [currentTarget, setCurrentTarget] = useState<any>(null);
 
@@ -74,7 +84,7 @@ export default function ChatPage() {
 
     }, [router]);
 
-    // Socket connection
+    // Socket connection - Stable
     useEffect(() => {
         if (!user) return;
 
@@ -95,9 +105,12 @@ export default function ChatPage() {
 
         newSocket.on('receive_message', (message: any) => {
             setMessages(prev => {
-                // Check if message belongs to current chat
-                const isForCurrentChannel = currentConversationType === 'CHANNEL' && message.channelId === currentConversationId;
-                const isForCurrentConversation = (currentConversationType === 'DIRECT' || currentConversationType === 'GROUP') && message.conversationId === currentConversationId;
+                // Use refs to check current conversation without re-binding listener
+                const currentId = currentConversationIdRef.current;
+                const currentType = currentConversationTypeRef.current;
+
+                const isForCurrentChannel = currentType === 'CHANNEL' && message.channelId === currentId;
+                const isForCurrentConversation = (currentType === 'DIRECT' || currentType === 'GROUP') && message.conversationId === currentId;
 
                 if (isForCurrentChannel || isForCurrentConversation) {
                     return [...prev, message];
@@ -111,7 +124,7 @@ export default function ChatPage() {
         return () => {
             newSocket.disconnect();
         };
-    }, [user, currentConversationId, currentConversationType]);
+    }, [user]); // Removed conversation dependencies to prevent reconnection
 
     // Join room and fetch history
     useEffect(() => {
@@ -124,6 +137,22 @@ export default function ChatPage() {
             fetchHistory(currentConversationId);
         }
     }, [currentConversationId, currentConversationType, socket]);
+
+    // Mobile Back Button Handling
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            // If we are in chat view (sidebar closed) and user hits back, go to sidebar
+            if (!isSidebarOpen) {
+                // Prevent default back navigation (which might exit app)
+                // But popstate happens AFTER navigation, so we just update state
+                setIsSidebarOpen(true);
+                setCurrentConversationId('');
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [isSidebarOpen]);
 
     const fetchHistory = async (id: string) => {
         try {
@@ -170,7 +199,14 @@ export default function ChatPage() {
             const otherUser = target.ConversationParticipant?.find((p: any) => p.User.id !== user?.id)?.User;
             setCurrentChatName(otherUser?.displayName || 'Chat');
         }
-        setIsSidebarOpen(false); // Close sidebar on mobile
+
+        // Mobile: Push state so back button works
+        if (window.innerWidth < 768) {
+            window.history.pushState({ chatOpen: true }, '', '/chat');
+            setIsSidebarOpen(false);
+        } else {
+            setIsSidebarOpen(false);
+        }
     };
 
     const handleBlockUser = async () => {
@@ -273,6 +309,7 @@ export default function ChatPage() {
                             onClick={() => {
                                 setIsSidebarOpen(true);
                                 setCurrentConversationId(''); // Optional: Clear selection to ensure state reset
+                                window.history.back(); // Go back in history to remove the pushed state
                             }}
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
