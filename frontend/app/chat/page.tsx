@@ -33,7 +33,7 @@ export default function ChatPage() {
     const [currentTarget, setCurrentTarget] = useState<any>(null);
 
     const [messages, setMessages] = useState<any[]>([]);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [viewingProfile, setViewingProfile] = useState<any>(null);
     const [contacts, setContacts] = useState<any[]>([]);
@@ -250,30 +250,33 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="flex h-screen bg-gray-100 dark:bg-gray-900 overflow-hidden">
-            <ChatSidebar
-                currentUser={user}
-                currentChannelId={currentConversationId} // Reusing prop name for now
-                onChannelSelect={(channel) => handleConversationSelect(channel.id, 'CHANNEL', channel)}
-                onConversationSelect={handleConversationSelect}
-                onLogout={handleLogout}
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
-            />
+        <div className="flex h-[100dvh] bg-gray-100 dark:bg-gray-900 overflow-hidden">
+            <div className={`${isSidebarOpen ? 'block' : 'hidden'} md:block w-full md:w-80 h-full`}>
+                <ChatSidebar
+                    currentUser={user}
+                    currentChannelId={currentConversationId}
+                    onChannelSelect={(channel) => handleConversationSelect(channel.id, 'CHANNEL', channel)}
+                    onConversationSelect={handleConversationSelect}
+                    onLogout={handleLogout}
+                    isOpen={true} // Always "open" in its container, visibility controlled by parent
+                    onClose={() => { }} // No-op, controlled by parent
+                    socket={socket}
+                />
+            </div>
 
-            <div className="flex-1 flex flex-col h-full w-full relative">
+            <div className={`${!isSidebarOpen ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full w-full relative`}>
                 {/* Header */}
-                <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shadow-sm z-10">
+                <div className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shadow-sm z-10 shrink-0">
                     <div className="flex items-center">
                         <button
-                            className="md:hidden mr-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            className="md:hidden mr-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                             onClick={() => setIsSidebarOpen(true)}
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         </button>
                         <div className="flex items-center">
                             {currentConversationType === 'CHANNEL' && <span className="text-2xl text-gray-400 mr-2">#</span>}
-                            <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-white truncate max-w-[200px]">
                                 {currentChatName || 'Select a chat'}
                             </h2>
                         </div>

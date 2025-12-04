@@ -44,9 +44,10 @@ interface ChatSidebarProps {
     onLogout: () => void;
     isOpen: boolean;
     onClose: () => void;
+    socket: any;
 }
 
-export default function ChatSidebar({ currentUser, currentChannelId, onChannelSelect, onConversationSelect, onLogout, isOpen, onClose }: ChatSidebarProps) {
+export default function ChatSidebar({ currentUser, currentChannelId, onChannelSelect, onConversationSelect, onLogout, isOpen, onClose, socket }: ChatSidebarProps) {
     const [activeTab, setActiveTab] = useState<'CHATS' | 'CONTACTS' | 'GROUPS'>('CHATS');
     const [channels, setChannels] = useState<Channel[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -88,6 +89,37 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Real-time updates
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleMessage = (message: any) => {
+            setConversations(prev => {
+                const convIndex = prev.findIndex(c => c.id === message.conversationId);
+                if (convIndex > -1) {
+                    const updatedConv = { ...prev[convIndex] };
+                    updatedConv.Message = [message, ...(updatedConv.Message || [])]; // Update last message
+
+                    // Move to top
+                    const newConvs = [...prev];
+                    newConvs.splice(convIndex, 1);
+                    newConvs.unshift(updatedConv);
+                    return newConvs;
+                } else {
+                    // New conversation, fetch data to be safe or append if we had full data
+                    fetchData();
+                    return prev;
+                }
+            });
+        };
+
+        socket.on('receive_message', handleMessage);
+
+        return () => {
+            socket.off('receive_message', handleMessage);
+        };
+    }, [socket]);
 
     const handleAddContact = async (email: string, nickname?: string) => {
         const token = localStorage.getItem('token');
@@ -166,16 +198,8 @@ export default function ChatSidebar({ currentUser, currentChannelId, onChannelSe
 
     return (
         <>
-            {/* Mobile Overlay */}
-            {isOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden" onClick={onClose} />
-            )}
-
             {/* Sidebar */}
-            <div className={`
-                fixed md:static inset-y-0 left-0 z-30 w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col transform transition-transform duration-200 ease-in-out
-                ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-            `}>
+            <div className="flex flex-col h-full w-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                     <div className="flex justify-between items-center mb-4">

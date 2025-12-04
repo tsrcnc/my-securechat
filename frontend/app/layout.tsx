@@ -12,6 +12,7 @@ const poppins = Poppins({
 export const metadata: Metadata = {
     title: "My SecureChat - Domain-Based Messaging",
     description: "Enterprise messaging platform with domain-based authentication",
+    viewport: "width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content",
 };
 
 export default function RootLayout({
